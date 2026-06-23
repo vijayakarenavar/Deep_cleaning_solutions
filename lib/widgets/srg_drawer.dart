@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-import 'package:dcs_app/demo/contact_screen.dart';
+import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/screens/contact_screen.dart';
 
 
 class SRGDrawer extends StatelessWidget {

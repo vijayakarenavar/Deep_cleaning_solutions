@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:dcs_app/demo/blogs_screen.dart';
-import 'package:dcs_app/demo/profile_screen.dart';
-import 'demo/app_colors.dart';
-import 'demo/home_screen.dart';
+import 'package:dcs_app/screens/blogs_screen.dart';
+import 'package:dcs_app/screens/profile_screen.dart';
+import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/screens/home_screen.dart';
 
 
 void main() {
@@ -35,23 +35,6 @@ class SRGApp extends StatelessWidget {
       home: const MainShell(),
     );
   }
-}
-
-// ── Placeholder screens for Blog & Profile (to be built separately) ──
-class _BlogsPlaceholder extends StatelessWidget {
-  const _BlogsPlaceholder();
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-    body: Center(child: Text('Blogs – Coming Soon')),
-  );
-}
-
-class _ProfilePlaceholder extends StatelessWidget {
-  const _ProfilePlaceholder();
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-    body: Center(child: Text('Profile – Coming Soon')),
-  );
 }
 
 // ── Main Shell ────────────────────────────────────────────────────────

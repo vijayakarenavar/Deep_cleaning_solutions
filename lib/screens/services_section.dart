@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:dcs_app/demo/responsive.dart';
-import 'package:dcs_app/demo/section_title.dart';
-import 'package:dcs_app/demo/flat_category_screen.dart';
-import 'package:dcs_app/demo/enquiry_form_screen.dart';
+import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/widgets/section_title.dart';
+import 'package:dcs_app/screens/flat_category_screen.dart';
+import 'package:dcs_app/screens/enquiry_form_screen.dart';
 
-import 'app_colors.dart';
-import 'app_images.dart';
-import 'app_network_image.dart';
+import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_images.dart';
+import 'package:dcs_app/widgets/app_network_image.dart';
 
 
 class ServicesSection extends StatelessWidget {

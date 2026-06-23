@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:dcs_app/demo/app_colors.dart';
-import 'package:dcs_app/demo/responsive.dart';
-import 'package:dcs_app/demo/srg_app_bar.dart';
-import 'package:dcs_app/demo/srg_drawer.dart';
+import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/widgets/srg_app_bar.dart';
+import 'package:dcs_app/widgets/srg_drawer.dart';
 
 class BlogsScreen extends StatefulWidget {
   const BlogsScreen({super.key});

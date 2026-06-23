@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:dcs_app/demo/responsive.dart';
-import 'package:dcs_app/demo/section_title.dart';
+import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/widgets/section_title.dart';
 
-import 'app_colors.dart';
+import 'package:dcs_app/utils/app_colors.dart';
 
 class FAQSection extends StatefulWidget {
   const FAQSection({super.key});

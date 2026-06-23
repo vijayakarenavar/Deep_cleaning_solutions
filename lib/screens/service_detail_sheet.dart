@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:dcs_app/demo/app_colors.dart';
-import 'package:dcs_app/demo/responsive.dart';
+import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/responsive.dart';
 
 class ServiceDetailSheet extends StatefulWidget {
   final String title;

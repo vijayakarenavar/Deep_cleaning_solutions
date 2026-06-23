@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
+import 'package:dcs_app/utils/app_colors.dart';
 
 
 class AppNetworkImage extends StatelessWidget {

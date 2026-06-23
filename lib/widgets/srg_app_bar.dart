@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-import 'app_images.dart';
-import 'app_network_image.dart';
+import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_images.dart';
+import 'package:dcs_app/widgets/app_network_image.dart';
 
 
 class SRGAppBar extends StatelessWidget implements PreferredSizeWidget {
