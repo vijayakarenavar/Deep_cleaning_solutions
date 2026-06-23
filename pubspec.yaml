@@ -1,5 +1,5 @@
-name: srg_app
-description: Suvarnaraj Group Cleaning Services App
+name: dcs_app
+description: Deep Cleaning Solutions App
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -15,6 +15,8 @@ dependencies:
   google_fonts: ^6.1.0
   url_launcher: ^6.2.2
   carousel_slider: ^4.2.1
+  dio: ^5.4.3
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
