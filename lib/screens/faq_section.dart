@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/widgets/section_title.dart';
-
 import 'package:dcs_app/utils/app_colors.dart';
 
 class FAQSection extends StatefulWidget {
-  const FAQSection({super.key});
+  final List<dynamic> faqs;
+
+  const FAQSection({
+    super.key,
+    this.faqs = const [],
+  });
 
   @override
   State<FAQSection> createState() => _FAQSectionState();
@@ -14,7 +18,8 @@ class FAQSection extends StatefulWidget {
 class _FAQSectionState extends State<FAQSection> {
   int _selectedIndex = -1;
 
-  static const List<Map<String, String>> _faqs = [
+  // ── Static fallback (API data नसेल तर) ───────────────────────────
+  static const List<Map<String, String>> _staticFaqs = [
     {
       'q': 'What cleaning services does Deep Cleaning Solutions offer?',
       'a': 'Deep Cleaning Solutions offers a comprehensive range of cleaning services including residential cleaning, commercial cleaning, deep cleaning, move-in/move-out cleaning, post-construction cleaning, and specialized services such as carpet cleaning, upholstery cleaning, and window cleaning. Whether you need regular maintenance or a one-time deep clean, our professional team can customize services to meet your specific requirements.',
@@ -25,21 +30,31 @@ class _FAQSectionState extends State<FAQSection> {
     },
     {
       'q': 'What cleaning products and equipment do you use?',
-      'a': 'At Deep Cleaning Solutions, we use professional-grade cleaning equipment and high-quality cleaning products that effectively remove dirt, grime, bacteria, and allergens. We prioritize eco-friendly and non-toxic cleaning solutions whenever possible to ensure the safety of your family, pets, employees, and the environment. Our cleaning team brings all necessary supplies and equipment to complete the job efficiently. If you have specific product preferences or sensitivities, please let us know in advance, and we\'ll be happy to accommodate your needs.',
+      'a': 'At Deep Cleaning Solutions, we use professional-grade cleaning equipment and high-quality cleaning products that effectively remove dirt, grime, bacteria, and allergens. We prioritize eco-friendly and non-toxic cleaning solutions whenever possible to ensure the safety of your family, pets, employees, and the environment.',
     },
     {
       'q': 'How much does your cleaning service cost?',
-      'a': 'Our cleaning service pricing varies based on several factors including the size of the space, type of cleaning required, frequency of service, and specific cleaning tasks needed. We offer competitive rates with transparent pricing and no hidden fees. For residential cleaning, prices typically start from ₹1,500 for basic cleaning of a 1BHK apartment. Commercial cleaning rates are customized based on your business needs. The best way to get an accurate quote is to contact us directly for a free consultation and estimate tailored to your specific requirements.',
+      'a': 'Our cleaning service pricing varies based on several factors including the size of the space, type of cleaning required, frequency of service, and specific cleaning tasks needed. For residential cleaning, prices typically start from ₹1,500 for basic cleaning of a 1BHK apartment. Contact us for a free quote.',
     },
     {
       'q': 'Are your cleaning staff trained and insured?',
-      'a': 'Yes, all our cleaning professionals at Deep Cleaning Solutions undergo thorough training in proper cleaning techniques, safety protocols, and customer service. We conduct background checks on all staff members to ensure your security and peace of mind. Our company is fully insured, including liability insurance that covers potential damages that might occur during service. Our cleaning teams are supervised and regularly evaluated to maintain our high standards of quality and professionalism. You can trust that your property is in good hands with our experienced and reliable cleaning staff.',
+      'a': 'Yes, all our cleaning professionals at Deep Cleaning Solutions undergo thorough training in proper cleaning techniques, safety protocols, and customer service. We conduct background checks on all staff members. Our company is fully insured with liability coverage.',
     },
     {
       'q': "What if I'm not satisfied with the cleaning service?",
-      'a': 'Customer satisfaction is our top priority at Deep Cleaning Solutions. We offer a 5-star satisfaction guarantee on all our cleaning services. If you\'re not completely satisfied with any aspect of our service, please notify us within 24 hours of service completion, and we\'ll arrange for a follow-up cleaning to address your concerns at no additional cost. Our goal is to ensure every customer is delighted with our service, and we welcome your feedback to help us continuously improve. We stand behind the quality of our work and are committed to resolving any issues promptly and professionally.',
+      'a': 'Customer satisfaction is our top priority. We offer a 5-star satisfaction guarantee. If you\'re not completely satisfied, please notify us within 24 hours of service completion, and we\'ll arrange for a follow-up cleaning at no additional cost.',
     },
   ];
+
+  List<Map<String, String>> get _faqs {
+    if (widget.faqs.isNotEmpty) {
+      return widget.faqs.map((f) => {
+        'q': (f['question'] ?? f['q'] ?? '').toString(),
+        'a': (f['answer']   ?? f['a'] ?? '').toString(),
+      }).toList();
+    }
+    return _staticFaqs;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +101,9 @@ class _FAQItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isOpen ? AppColors.secondary : AppColors.border),
+        border: Border.all(
+          color: isOpen ? AppColors.secondary : AppColors.border,
+        ),
       ),
       child: Column(
         children: [

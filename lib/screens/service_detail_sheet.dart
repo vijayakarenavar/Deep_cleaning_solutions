@@ -1,26 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/providers/cart_provider.dart';
 
-class ServiceDetailSheet extends StatefulWidget {
+class ServiceDetailSheet extends ConsumerStatefulWidget {
   final String title;
   final List<Map<String, String>> services;
+  final int? productId;
 
   const ServiceDetailSheet({
     super.key,
     required this.title,
     required this.services,
+    this.productId,
   });
 
   @override
-  State<ServiceDetailSheet> createState() => _ServiceDetailSheetState();
+  ConsumerState<ServiceDetailSheet> createState() => _ServiceDetailSheetState();
 }
 
-class _ServiceDetailSheetState extends State<ServiceDetailSheet> {
-  final _sqftCtrl = TextEditingController();
+class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
+  final _sqftCtrl   = TextEditingController();
   bool _cleanWalls  = false;
   bool _cleanPaint  = false;
   bool _removeCover = false;
+  bool _isLoading   = false;
 
   @override
   void dispose() {
@@ -28,8 +33,62 @@ class _ServiceDetailSheetState extends State<ServiceDetailSheet> {
     super.dispose();
   }
 
+  Future<void> _addToCart() async {
+    setState(() => _isLoading = true);
+
+    try {
+      bool success = false;
+
+      if (widget.productId != null) {
+        // Flat product cart
+        success = await ref.read(cartProvider.notifier).addFlatToCart(
+          productId:   widget.productId!,
+          bhkType:     widget.title,
+          flatType:    widget.title.contains('Furnished') ? 'Furnished' : 'Unfurnished',
+          sqft:        double.tryParse(_sqftCtrl.text) ?? 0,
+          cleanWalls:  _cleanWalls,
+          cleanPaint:  _cleanPaint,
+          removeCover: _removeCover,
+        );
+      } else {
+        // Normal product cart
+        success = await ref.read(cartProvider.notifier).addToCart(
+          productId: 0,
+          quantity:  1,
+          extras: {
+            'title':        widget.title,
+            'sqft':         _sqftCtrl.text,
+            'clean_walls':  _cleanWalls,
+            'clean_paint':  _cleanPaint,
+            'remove_cover': _removeCover,
+          },
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? '${widget.title} added to cart!'
+                  : ref.read(cartProvider).error ?? 'Failed to add to cart.',
+            ),
+            backgroundColor: success ? AppColors.green : AppColors.secondary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cartState = ref.watch(cartProvider);
+
     return DraggableScrollableSheet(
       initialChildSize: 0.92,
       minChildSize: 0.5,
@@ -68,8 +127,17 @@ class _ServiceDetailSheetState extends State<ServiceDetailSheet> {
                     ),
                   ),
                   ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.shopping_cart, size: 14),
+                    onPressed: _isLoading ? null : _addToCart,
+                    icon: _isLoading
+                        ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                        : const Icon(Icons.shopping_cart, size: 14),
                     label: const Text(
                       'ADD TO CART',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
@@ -90,6 +158,33 @@ class _ServiceDetailSheetState extends State<ServiceDetailSheet> {
                 ],
               ),
             ),
+
+            // Cart count badge
+            if (cartState.cartCount > 0)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.purpleLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.shopping_cart, size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${cartState.cartCount} item(s) in cart',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             const Divider(height: 20),
 
             // Scrollable Content
@@ -184,18 +279,17 @@ class _ServiceDetailSheetState extends State<ServiceDetailSheet> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${widget.title} added to cart!'),
-                            backgroundColor: AppColors.green,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.shopping_cart, size: 16),
+                      onPressed: _isLoading ? null : _addToCart,
+                      icon: _isLoading
+                          ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : const Icon(Icons.shopping_cart, size: 16),
                       label: const Text(
                         'ADD TO CART',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.5),

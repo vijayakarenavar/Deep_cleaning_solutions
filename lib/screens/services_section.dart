@@ -3,16 +3,21 @@ import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/widgets/section_title.dart';
 import 'package:dcs_app/screens/flat_category_screen.dart';
 import 'package:dcs_app/screens/enquiry_form_screen.dart';
-
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
 
 
 class ServicesSection extends StatelessWidget {
-  const ServicesSection({super.key});
+  final List<dynamic> categories;
 
-  static const List<Map<String, dynamic>> _services = [
+  const ServicesSection({
+    super.key,
+    this.categories = const [],
+  });
+
+  // ── Static fallback ───────────────────────────────────────────────
+  static const List<Map<String, dynamic>> _staticServices = [
     {'name': 'Flats',       'image': AppImages.flat,       'isNew': false},
     {'name': 'Bungalows',   'image': AppImages.bungalow,   'isNew': false},
     {'name': 'Offices',     'image': AppImages.office,     'isNew': false},
@@ -22,6 +27,17 @@ class ServicesSection extends StatelessWidget {
     {'name': 'School',      'image': AppImages.school,     'isNew': false},
     {'name': 'Car Wash',    'image': AppImages.carWash,    'isNew': true},
   ];
+
+  List<Map<String, dynamic>> get _services {
+    if (categories.isNotEmpty) {
+      return categories.map((c) => {
+        'name':  (c['name']  ?? '').toString(),
+        'image': (c['image'] ?? c['icon'] ?? AppImages.flat).toString(),
+        'isNew': c['is_new'] ?? false,
+      }).toList();
+    }
+    return _staticServices;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +100,7 @@ class ServiceCard extends StatelessWidget {
                     height: imgH,
                     fit: BoxFit.cover,
                   ),
-                  // Dark gradient overlay at bottom
+                  // Dark gradient overlay
                   Positioned(
                     bottom: 0, left: 0, right: 0,
                     child: Container(
@@ -98,7 +114,7 @@ class ServiceCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Overlay action buttons
+                  // Overlay buttons
                   Positioned(
                     bottom: 12, left: 0, right: 0,
                     child: Row(
@@ -120,8 +136,10 @@ class ServiceCard extends StatelessWidget {
                           color: AppColors.green,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text('NEW',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                 ],

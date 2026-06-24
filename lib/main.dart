@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/screens/blogs_screen.dart';
 import 'package:dcs_app/screens/profile_screen.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/screens/home_screen.dart';
+import 'package:dcs_app/services/api_client.dart';
 
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // .env load करा
+  await dotenv.load(fileName: '.env');
+
+  // API Client initialize करा
+  ApiClient().init();
+
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -15,16 +25,21 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const SRGApp());
+
+  runApp(
+    const ProviderScope(
+      child: DCSApp(),
+    ),
+  );
 }
 
-class SRGApp extends StatelessWidget {
-  const SRGApp({super.key});
+class DCSApp extends StatelessWidget {
+  const DCSApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Suvarnaraj Group',
+      title: 'Deep Cleaning Solutions',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
@@ -67,7 +82,11 @@ class _MainShellState extends State<MainShell> {
         color: AppColors.white,
         border: const Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, -2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: SafeArea(
@@ -121,15 +140,20 @@ class _NavItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Icon(isActive ? activeIcon : icon,
-                color: isActive ? AppColors.primary : AppColors.textMuted, size: 22),
+            Icon(
+              isActive ? activeIcon : icon,
+              color: isActive ? AppColors.primary : AppColors.textMuted,
+              size: 22,
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                  color: isActive ? AppColors.primary : AppColors.textMuted,
-                )),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? AppColors.primary : AppColors.textMuted,
+              ),
+            ),
           ],
         ),
       ),

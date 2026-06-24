@@ -1,9 +1,95 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/services/contact_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ContactScreen extends StatelessWidget {
+class ContactScreen extends ConsumerStatefulWidget {
   const ContactScreen({super.key});
+
+  @override
+  ConsumerState<ContactScreen> createState() => _ContactScreenState();
+}
+
+class _ContactScreenState extends ConsumerState<ContactScreen> {
+  final _formKey    = GlobalKey<FormState>();
+  final _nameCtrl   = TextEditingController();
+  final _emailCtrl  = TextEditingController();
+  final _phoneCtrl  = TextEditingController();
+  final _msgCtrl    = TextEditingController();
+  bool _isLoading   = false;
+
+  final ContactService _contactService = ContactService();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final user = ref.read(authProvider).user;
+      if (user != null) {
+        _nameCtrl.text  = (user['name']   ?? '').toString();
+        _emailCtrl.text = (user['email']  ?? '').toString();
+        _phoneCtrl.text = (user['mobile'] ?? user['phone'] ?? '').toString();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _msgCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _contactService.sendMessage(
+        name:    _nameCtrl.text.trim(),
+        email:   _emailCtrl.text.trim(),
+        phone:   _phoneCtrl.text.trim(),
+        message: _msgCtrl.text.trim(),
+      );
+
+      if (mounted) {
+        _msgCtrl.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Message sent successfully!'),
+            backgroundColor: AppColors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.secondary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,18 +154,21 @@ class ContactScreen extends StatelessWidget {
                     color: AppColors.primary,
                     label: 'Phone',
                     value: '+91 7558634862',
+                    onTap: () => _launchUrl('tel:+917558634862'),
                   ),
                   _ContactItem(
                     icon: Icons.email_outlined,
                     color: AppColors.secondary,
                     label: 'Email',
                     value: 'contact@suvarnarajgroup.com',
+                    onTap: () => _launchUrl('mailto:contact@suvarnarajgroup.com'),
                   ),
                   _ContactItem(
                     icon: Icons.location_on_outlined,
                     color: AppColors.primary,
                     label: 'Address',
                     value: 'Pune, Maharashtra',
+                    onTap: () => _launchUrl('https://maps.google.com/?q=Pune,Maharashtra'),
                   ),
                   _ContactItem(
                     icon: Icons.chat_outlined,
@@ -87,6 +176,7 @@ class ContactScreen extends StatelessWidget {
                     label: 'WhatsApp',
                     value: '+91 7558634862',
                     isLast: true,
+                    onTap: () => _launchUrl('https://wa.me/917558634862'),
                   ),
                 ],
               ),
@@ -103,53 +193,74 @@ class ContactScreen extends StatelessWidget {
                   BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Send a Message',
-                    style: TextStyle(
-                      fontSize: R.sp(context, 15),
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.black,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Send a Message',
+                      style: TextStyle(
+                        fontSize: R.sp(context, 15),
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _InputField(hint: 'Your Name'),
-                  const SizedBox(height: 10),
-                  _InputField(hint: 'Your Email'),
-                  const SizedBox(height: 10),
-                  _InputField(hint: 'Phone Number'),
-                  const SizedBox(height: 10),
-                  _InputField(hint: 'Your Message...', maxLines: 4),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Message sent successfully!'),
-                            backgroundColor: AppColors.green,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(height: 12),
+                    _InputField(
+                      ctrl: _nameCtrl,
+                      hint: 'Your Name',
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 10),
+                    _InputField(
+                      ctrl: _emailCtrl,
+                      hint: 'Your Email',
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 10),
+                    _InputField(
+                      ctrl: _phoneCtrl,
+                      hint: 'Phone Number',
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 10),
+                    _InputField(
+                      ctrl: _msgCtrl,
+                      hint: 'Your Message...',
+                      maxLines: 4,
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _sendMessage,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.secondary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Send Message',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                        )
+                            : const Text(
+                          'Send Message',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -164,6 +275,7 @@ class _ContactItem extends StatelessWidget {
   final Color color;
   final String label, value;
   final bool isLast;
+  final VoidCallback? onTap;
 
   const _ContactItem({
     required this.icon,
@@ -171,60 +283,78 @@ class _ContactItem extends StatelessWidget {
     required this.label,
     required this.value,
     this.isLast = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 18),
             ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(fontSize: 13, color: AppColors.black, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 13, color: AppColors.black, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _InputField extends StatelessWidget {
+  final TextEditingController ctrl;
   final String hint;
   final int maxLines;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
 
-  const _InputField({required this.hint, this.maxLines = 1});
+  const _InputField({
+    required this.ctrl,
+    required this.hint,
+    this.maxLines = 1,
+    this.keyboardType,
+    this.validator,
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      controller: ctrl,
       maxLines: maxLines,
+      keyboardType: keyboardType,
+      validator: validator,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
@@ -241,6 +371,10 @@ class _InputField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.secondary),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),

@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
 import 'package:dcs_app/utils/responsive.dart';
-
+import 'package:dcs_app/providers/product_provider.dart';
 import 'service_detail_sheet.dart';
 
-class BHKListScreen extends StatelessWidget {
+class BHKListScreen extends ConsumerStatefulWidget {
   final String type;
   const BHKListScreen({super.key, required this.type});
+
+  @override
+  ConsumerState<BHKListScreen> createState() => _BHKListScreenState();
+}
+
+class _BHKListScreenState extends ConsumerState<BHKListScreen> {
 
   static const List<Map<String, dynamic>> _bhkList = [
     {'name': '1 BHK'},
@@ -89,22 +96,57 @@ class BHKListScreen extends StatelessWidget {
     ],
   };
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (widget.type == 'Furnished') {
+        ref.read(productProvider.notifier).getFurnishedFlats();
+      } else {
+        ref.read(productProvider.notifier).getUnfurnishedFlats();
+      }
+    });
+  }
+
   List<Map<String, String>> _getServices(String bhk) {
-    if (type == 'Furnished') {
+    if (widget.type == 'Furnished') {
       return _furnishedServices[bhk] ?? _furnishedServices['1 BHK']!;
     }
     return _unfurnishedServices[bhk] ?? _unfurnishedServices['1 BHK']!;
   }
 
   String _getImageUrl(int index) {
-    if (type == 'Furnished') {
-      return AppImages.furnishedBHK[index];
+    final productState = ref.read(productProvider);
+    final products = widget.type == 'Furnished'
+        ? productState.furnishedFlats
+        : productState.unfurnishedFlats;
+
+    if (products.isNotEmpty && index < products.length) {
+      return (products[index]['image'] ?? products[index]['thumbnail'] ?? '').toString();
     }
-    return AppImages.unfurnishedBHK[index];
+
+    if (widget.type == 'Furnished') {
+      return AppImages.furnishedBHK[index % AppImages.furnishedBHK.length];
+    }
+    return AppImages.unfurnishedBHK[index % AppImages.unfurnishedBHK.length];
+  }
+
+  int? _getProductId(int index) {
+    final productState = ref.read(productProvider);
+    final products = widget.type == 'Furnished'
+        ? productState.furnishedFlats
+        : productState.unfurnishedFlats;
+
+    if (products.isNotEmpty && index < products.length) {
+      return products[index]['id'] as int?;
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final productState = ref.watch(productProvider);
+
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -115,7 +157,7 @@ class BHKListScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          '$type Flats',
+          '${widget.type} Flats',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black),
         ),
         centerTitle: true,
@@ -124,7 +166,11 @@ class BHKListScreen extends StatelessWidget {
           child: Container(height: 1, color: AppColors.border),
         ),
       ),
-      body: SingleChildScrollView(
+      body: productState.isLoading
+          ? const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      )
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -134,16 +180,18 @@ class BHKListScreen extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _bhkList.length,
               itemBuilder: (_, i) {
-                final bhkName = _bhkList[i]['name'] as String;
-                final fullName = '$bhkName $type Homes';
+                final bhkName  = _bhkList[i]['name'] as String;
+                final fullName = '$bhkName ${widget.type} Homes';
+
                 return GestureDetector(
                   onTap: () => showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
                     builder: (_) => ServiceDetailSheet(
-                      title: fullName,
-                      services: _getServices(bhkName),
+                      title:     fullName,
+                      services:  _getServices(bhkName),
+                      productId: _getProductId(i),
                     ),
                   ),
                   child: Container(

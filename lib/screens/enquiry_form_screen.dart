@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/services/enquiry_service.dart';
 
-class EnquiryFormScreen extends StatefulWidget {
+class EnquiryFormScreen extends ConsumerStatefulWidget {
   final String serviceName;
   const EnquiryFormScreen({super.key, required this.serviceName});
 
   @override
-  State<EnquiryFormScreen> createState() => _EnquiryFormScreenState();
+  ConsumerState<EnquiryFormScreen> createState() => _EnquiryFormScreenState();
 }
 
-class _EnquiryFormScreenState extends State<EnquiryFormScreen> {
+class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _firstNameCtrl = TextEditingController();
@@ -26,6 +29,9 @@ class _EnquiryFormScreenState extends State<EnquiryFormScreen> {
   String? _selectedTime;
   DateTime? _selectedDate;
   bool _orderInspection = false;
+  bool _isLoading       = false;
+
+  final EnquiryService _enquiryService = EnquiryService();
 
   final List<String> _services = [
     'Flat Cleaning',
@@ -47,15 +53,29 @@ class _EnquiryFormScreenState extends State<EnquiryFormScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedService = widget.serviceName.contains('Flat')       ? 'Flat Cleaning'
-        : widget.serviceName.contains('Bungalow')  ? 'Bungalow Cleaning'
-        : widget.serviceName.contains('Office')    ? 'Office Cleaning'
-        : widget.serviceName.contains('Society')   ? 'Society Cleaning'
-        : widget.serviceName.contains('Restaurant')? 'Restaurant Cleaning'
-        : widget.serviceName.contains('Shop')      ? 'Shop Cleaning'
-        : widget.serviceName.contains('School')    ? 'School Cleaning'
-        : widget.serviceName.contains('Car')       ? 'Car Wash'
+
+    // Service auto select
+    _selectedService = widget.serviceName.contains('Flat')        ? 'Flat Cleaning'
+        : widget.serviceName.contains('Bungalow')   ? 'Bungalow Cleaning'
+        : widget.serviceName.contains('Office')     ? 'Office Cleaning'
+        : widget.serviceName.contains('Society')    ? 'Society Cleaning'
+        : widget.serviceName.contains('Restaurant') ? 'Restaurant Cleaning'
+        : widget.serviceName.contains('Shop')       ? 'Shop Cleaning'
+        : widget.serviceName.contains('School')     ? 'School Cleaning'
+        : widget.serviceName.contains('Car')        ? 'Car Wash'
         : null;
+
+    // Logged in user data auto fill
+    Future.microtask(() {
+      final user = ref.read(authProvider).user;
+      if (user != null) {
+        final name = (user['name'] ?? '').toString().split(' ');
+        _firstNameCtrl.text = name.isNotEmpty ? name[0] : '';
+        _lastNameCtrl.text  = name.length > 1 ? name.sublist(1).join(' ') : '';
+        _emailCtrl.text     = (user['email']  ?? '').toString();
+        _mobileCtrl.text    = (user['mobile'] ?? user['phone'] ?? '').toString();
+      }
+    });
   }
 
   @override
@@ -93,6 +113,57 @@ class _EnquiryFormScreenState extends State<EnquiryFormScreen> {
 
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  String _formatDateForApi(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _submitEnquiry() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _enquiryService.submitEnquiry(
+        firstName:       _firstNameCtrl.text.trim(),
+        lastName:        _lastNameCtrl.text.trim(),
+        email:           _emailCtrl.text.trim(),
+        mobile:          _mobileCtrl.text.trim(),
+        address:         _addressCtrl.text.trim(),
+        state:           _stateCtrl.text.trim(),
+        city:            _cityCtrl.text.trim(),
+        serviceType:     _selectedService ?? '',
+        sqft:            _areaCtrl.text.isNotEmpty ? double.tryParse(_areaCtrl.text) : null,
+        orderInspection: _orderInspection,
+        inspectionDate:  _selectedDate != null ? _formatDateForApi(_selectedDate!) : null,
+        inspectionTime:  _selectedTime,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Enquiry submitted successfully!'),
+            backgroundColor: AppColors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.secondary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +207,7 @@ class _EnquiryFormScreenState extends State<EnquiryFormScreen> {
               // ── Email & Mobile ─────────────────
               Row(
                 children: [
-                  Expanded(child: _FormField(ctrl: _emailCtrl,  hint: 'Email', keyboardType: TextInputType.emailAddress)),
+                  Expanded(child: _FormField(ctrl: _emailCtrl, hint: 'Email', keyboardType: TextInputType.emailAddress)),
                   const SizedBox(width: 10),
                   Expanded(child: _FormField(
                     ctrl: _mobileCtrl,
@@ -378,26 +449,24 @@ class _EnquiryFormScreenState extends State<EnquiryFormScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Enquiry submitted successfully!'),
-                          backgroundColor: AppColors.green,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _isLoading ? null : _submitEnquiry,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
-                  child: Text(
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : Text(
                     _orderInspection ? 'Proceed to Payment (Rs 200)' : 'Submit Enquiry',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),

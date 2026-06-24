@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:dcs_app/utils/responsive.dart';
-
 import 'package:dcs_app/utils/app_colors.dart';
 
 class BannerSection extends StatefulWidget {
-  const BannerSection({super.key});
+  final List<dynamic> banners;
+
+  const BannerSection({
+    super.key,
+    this.banners = const [],
+  });
 
   @override
   State<BannerSection> createState() => _BannerSectionState();
@@ -14,11 +18,23 @@ class _BannerSectionState extends State<BannerSection> {
   int _current = 0;
   final PageController _ctrl = PageController();
 
-  static const List<Map<String, String>> _banners = [
+  // ── Static fallback (API data नसेल तर) ───────────────────────────
+  static const List<Map<String, String>> _staticBanners = [
     {'tag': 'Professional Cleaning', 'title': 'Expert Cleaning\nServices for You',  'sub': 'Trusted by 1400+ happy clients across Pune'},
     {'tag': 'New Service',           'title': 'Car Wash Now\nAvailable!',            'sub': 'Book your car wash service today'},
     {'tag': 'Seasonal Offer',        'title': 'Get 20% Off\nThis Month!',            'sub': 'Limited time offer on all cleaning services'},
   ];
+
+  List<Map<String, String>> get _banners {
+    if (widget.banners.isNotEmpty) {
+      return widget.banners.map((b) => {
+        'tag':   (b['tag']   ?? '').toString(),
+        'title': (b['title'] ?? '').toString(),
+        'sub':   (b['sub']   ?? b['description'] ?? '').toString(),
+      }).toList();
+    }
+    return _staticBanners;
+  }
 
   @override
   void dispose() {
@@ -45,15 +61,19 @@ class _BannerSectionState extends State<BannerSection> {
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_banners.length, (i) => AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: _current == i ? 18 : 6, height: 6,
-              decoration: BoxDecoration(
-                color: _current == i ? AppColors.secondary : AppColors.border,
-                borderRadius: BorderRadius.circular(3),
+            children: List.generate(
+              _banners.length,
+                  (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: _current == i ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _current == i ? AppColors.secondary : AppColors.border,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-            )),
+            ),
           ),
         ],
       ),
@@ -88,22 +108,31 @@ class _BannerCard extends StatelessWidget {
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(data['tag']!,
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
+            child: Text(
+              data['tag']!,
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
           ),
           const SizedBox(height: 8),
-          Text(data['title']!,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: R.sp(context, 18),
-                fontWeight: FontWeight.w700,
-                height: 1.3,
-              )),
+          Text(
+            data['title']!,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: R.sp(context, 18),
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(data['sub']!,
-              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: R.sp(context, 11)),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis),
+          Text(
+            data['sub']!,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.85),
+              fontSize: R.sp(context, 11),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 10),
           ElevatedButton(
             onPressed: () {},
@@ -114,7 +143,10 @@ class _BannerCard extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               elevation: 0,
             ),
-            child: const Text('Book Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            child: const Text(
+              'Book Now',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
