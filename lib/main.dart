@@ -2,21 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dcs_app/screens/blogs_screen.dart';
+import 'package:dcs_app/screens/login_screen.dart';
+import 'package:dcs_app/screens/register_screen.dart';
+import 'package:dcs_app/screens/cart_screen.dart';
+import 'package:dcs_app/screens/checkout_screen.dart';
 import 'package:dcs_app/screens/profile_screen.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/screens/home_screen.dart';
 import 'package:dcs_app/services/api_client.dart';
-
+import 'package:dcs_app/providers/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // .env load करा
   await dotenv.load(fileName: '.env');
 
-  // API Client initialize करा
   ApiClient().init();
+
+  // ✅ 401 आल्यावर token clear होऊन login ला redirect
+  ApiClient.onUnauthorized = () {
+    _router.go('/login');
+  };
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
@@ -38,7 +46,7 @@ class DCSApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Deep Cleaning Solutions',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -47,12 +55,55 @@ class DCSApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const MainShell(),
+      routerConfig: _router,
     );
   }
 }
 
-// ── Main Shell ────────────────────────────────────────────────────────
+String? _authGuard(BuildContext context, GoRouterState state) {
+  final container = ProviderScope.containerOf(context);
+  final authState = container.read(authProvider);
+
+  // अजून initialized नाही — redirect नको
+  if (!authState.isInitialized) return null;
+
+  final loggedIn  = authState.isLoggedIn;
+  final location  = state.uri.toString();
+  final loggingIn = location == '/login' || location == '/register';
+
+  if (!loggedIn && !loggingIn) return '/login';
+  if (loggedIn && loggingIn)   return '/';
+
+  return null;
+}
+
+final GoRouter _router = GoRouter(
+  initialLocation: '/',
+  redirect: _authGuard,
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const MainShell(),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/cart',
+      builder: (context, state) => const CartScreen(),
+    ),
+    GoRoute(
+      path: '/checkout',
+      builder: (context, state) => const CheckoutScreen(),
+    ),
+  ],
+);
+
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
   @override
@@ -83,7 +134,7 @@ class _MainShellState extends State<MainShell> {
         border: const Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),

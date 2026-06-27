@@ -1,5 +1,8 @@
+// lib/screens/enquiry_form_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
@@ -23,13 +26,11 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   final _addressCtrl   = TextEditingController();
   final _stateCtrl     = TextEditingController();
   final _cityCtrl      = TextEditingController();
-  final _areaCtrl      = TextEditingController();
 
   String? _selectedService;
   String? _selectedTime;
   DateTime? _selectedDate;
-  bool _orderInspection = false;
-  bool _isLoading       = false;
+  bool _isLoading = false;
 
   final EnquiryService _enquiryService = EnquiryService();
 
@@ -42,12 +43,18 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
     'Shop Cleaning',
     'School Cleaning',
     'Car Wash',
+    'Deep Cleaning',
   ];
 
-  final List<String> _timeSlots = [
-    '10:00 AM', '11:00 AM', '12:00 PM',
-    '1:00 PM',  '2:00 PM',  '3:00 PM',
-    '4:00 PM',  '5:00 PM',
+  final List<Map<String, String>> _timeSlots = [
+    {'label': '10:00 AM', 'value': '10:00'},
+    {'label': '11:00 AM', 'value': '11:00'},
+    {'label': '12:00 PM', 'value': '12:00'},
+    {'label': '1:00 PM',  'value': '13:00'},
+    {'label': '2:00 PM',  'value': '14:00'},
+    {'label': '3:00 PM',  'value': '15:00'},
+    {'label': '4:00 PM',  'value': '16:00'},
+    {'label': '5:00 PM',  'value': '17:00'},
   ];
 
   @override
@@ -63,9 +70,9 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
         : widget.serviceName.contains('Shop')       ? 'Shop Cleaning'
         : widget.serviceName.contains('School')     ? 'School Cleaning'
         : widget.serviceName.contains('Car')        ? 'Car Wash'
+        : widget.serviceName.contains('Deep')       ? 'Deep Cleaning'
         : null;
 
-    // Logged in user data auto fill
     Future.microtask(() {
       final user = ref.read(authProvider).user;
       if (user != null) {
@@ -87,7 +94,6 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
     _addressCtrl.dispose();
     _stateCtrl.dispose();
     _cityCtrl.dispose();
-    _areaCtrl.dispose();
     super.dispose();
   }
 
@@ -100,10 +106,7 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
       lastDate: now.add(const Duration(days: 90)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.primary,
-            onPrimary: Colors.white,
-          ),
+          colorScheme: const ColorScheme.light(primary: AppColors.primary, onPrimary: Colors.white),
         ),
         child: child!,
       ),
@@ -119,35 +122,49 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
 
   Future<void> _submitEnquiry() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedService == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a service'), backgroundColor: AppColors.secondary),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      await _enquiryService.submitEnquiry(
-        firstName:       _firstNameCtrl.text.trim(),
-        lastName:        _lastNameCtrl.text.trim(),
-        email:           _emailCtrl.text.trim(),
-        mobile:          _mobileCtrl.text.trim(),
-        address:         _addressCtrl.text.trim(),
-        state:           _stateCtrl.text.trim(),
-        city:            _cityCtrl.text.trim(),
-        serviceType:     _selectedService ?? '',
-        sqft:            _areaCtrl.text.isNotEmpty ? double.tryParse(_areaCtrl.text) : null,
-        orderInspection: _orderInspection,
-        inspectionDate:  _selectedDate != null ? _formatDateForApi(_selectedDate!) : null,
-        inspectionTime:  _selectedTime,
+      // ✅ FIX: serviceType → service, order_inspection काढला
+      final response = await _enquiryService.submitEnquiry(
+        firstName:      _firstNameCtrl.text.trim(),
+        lastName:       _lastNameCtrl.text.trim(),
+        email:          _emailCtrl.text.trim(),
+        mobile:         _mobileCtrl.text.trim(),
+        address:        _addressCtrl.text.trim(),
+        state:          _stateCtrl.text.trim(),
+        city:           _cityCtrl.text.trim(),
+        service:        _selectedService!,
+        inspectionDate: _selectedDate != null ? _formatDateForApi(_selectedDate!) : null,
+        inspectionTime: _selectedTime,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Enquiry submitted successfully!'),
-            backgroundColor: AppColors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-        Navigator.pop(context);
+        // ✅ API response मध्ये redirect_url येतो — PhonePe payment साठी
+        final redirectUrl = response['data']?['redirect_url'];
+        if (redirectUrl != null && redirectUrl.toString().isNotEmpty) {
+          final uri = Uri.parse(redirectUrl.toString());
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Enquiry submitted successfully!'),
+              backgroundColor: AppColors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -176,10 +193,7 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Submit an Enquiry',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black),
-        ),
+        title: const Text('Submit an Enquiry', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.black)),
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -195,28 +209,19 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
             children: [
 
               // ── Name Row ──────────────────────
-              Row(
-                children: [
-                  Expanded(child: _FormField(ctrl: _firstNameCtrl, hint: 'First Name', validator: (v) => v!.isEmpty ? 'Required' : null)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _FormField(ctrl: _lastNameCtrl,  hint: 'Last Name',  validator: (v) => v!.isEmpty ? 'Required' : null)),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _FormField(ctrl: _firstNameCtrl, hint: 'First Name', validator: (v) => v!.isEmpty ? 'Required' : null)),
+                const SizedBox(width: 10),
+                Expanded(child: _FormField(ctrl: _lastNameCtrl,  hint: 'Last Name',  validator: (v) => v!.isEmpty ? 'Required' : null)),
+              ]),
               const SizedBox(height: 10),
 
               // ── Email & Mobile ─────────────────
-              Row(
-                children: [
-                  Expanded(child: _FormField(ctrl: _emailCtrl, hint: 'Email', keyboardType: TextInputType.emailAddress)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _FormField(
-                    ctrl: _mobileCtrl,
-                    hint: 'Mobile (10 digits)',
-                    keyboardType: TextInputType.phone,
-                    validator: (v) => v!.length != 10 ? '10 digits required' : null,
-                  )),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _FormField(ctrl: _emailCtrl,  hint: 'Email',             keyboardType: TextInputType.emailAddress)),
+                const SizedBox(width: 10),
+                Expanded(child: _FormField(ctrl: _mobileCtrl, hint: 'Mobile (10 digits)', keyboardType: TextInputType.phone, validator: (v) => v!.length != 10 ? '10 digits required' : null)),
+              ]),
               const SizedBox(height: 10),
 
               // ── Address ────────────────────────
@@ -224,22 +229,17 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
               const SizedBox(height: 10),
 
               // ── State & City ───────────────────
-              Row(
-                children: [
-                  Expanded(child: _FormField(ctrl: _stateCtrl, hint: 'State')),
-                  const SizedBox(width: 10),
-                  Expanded(child: _FormField(ctrl: _cityCtrl,  hint: 'City')),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _FormField(ctrl: _stateCtrl, hint: 'State')),
+                const SizedBox(width: 10),
+                Expanded(child: _FormField(ctrl: _cityCtrl,  hint: 'City')),
+              ]),
               const SizedBox(height: 10),
 
               // ── Service Dropdown ───────────────
+              // ✅ FIX: 'service' field (आधी service_type होता)
               Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
-                ),
+                decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -247,82 +247,9 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
                     hint: const Text('Choose Service', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
                     isExpanded: true,
                     icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
-                    items: _services.map((s) => DropdownMenuItem(
-                      value: s,
-                      child: Text(s, style: const TextStyle(fontSize: 13)),
-                    )).toList(),
+                    items: _services.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13)))).toList(),
                     onChanged: (v) => setState(() => _selectedService = v),
                   ),
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // ── Total Area ─────────────────────
-              const Text(
-                'Total Area in Sq. Ft. (if known)',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              _FormField(ctrl: _areaCtrl, hint: '', keyboardType: TextInputType.number),
-              const SizedBox(height: 14),
-
-              // ── Inspection Checkbox ────────────
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _orderInspection ? AppColors.primary : AppColors.border),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _orderInspection,
-                          onChanged: (v) => setState(() => _orderInspection = v!),
-                          activeColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        ),
-                        const Expanded(
-                          child: Text.rich(TextSpan(children: [
-                            TextSpan(
-                              text: 'Order inspection at just Rs 200/- ',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
-                            ),
-                            TextSpan(
-                              text: '*',
-                              style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.w700),
-                            ),
-                          ])),
-                        ),
-                      ],
-                    ),
-                    if (_orderInspection) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF8E1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFFE082)),
-                        ),
-                        child: const Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.info_outline, size: 16, color: Color(0xFF795548)),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Note: You will be redirected to PhonePe payment gateway to complete the Rs 200 payment for inspection scheduling.',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF795548), height: 1.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
                 ),
               ),
               const SizedBox(height: 14),
@@ -338,108 +265,73 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_month, color: AppColors.primary, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Schedule Your Inspection',
-                          style: TextStyle(
-                            fontSize: R.sp(context, 14),
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Row(children: [
+                      const Icon(Icons.calendar_month, color: AppColors.primary, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Schedule Your Inspection',
+                        style: TextStyle(fontSize: R.sp(context, 14), fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                    ]),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        // Date Picker
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Inspection Date *',
-                                style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                    Row(children: [
+                      // Date Picker
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Inspection Date', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: _pickDate,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+                                child: Row(children: [
+                                  Expanded(child: Text(
+                                    _selectedDate != null ? _formatDate(_selectedDate!) : 'dd/mm/yyyy',
+                                    style: TextStyle(fontSize: 13, color: _selectedDate != null ? AppColors.black : AppColors.textMuted),
+                                  )),
+                                  const Icon(Icons.calendar_today, size: 16, color: AppColors.textMuted),
+                                ]),
                               ),
-                              const SizedBox(height: 6),
-                              GestureDetector(
-                                onTap: _pickDate,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _selectedDate != null ? _formatDate(_selectedDate!) : 'dd/mm/yyyy',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: _selectedDate != null ? AppColors.black : AppColors.textMuted,
-                                          ),
-                                        ),
-                                      ),
-                                      const Icon(Icons.calendar_today, size: 16, color: AppColors.textMuted),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'You can select dates starting from tomorrow',
-                                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text('Starting from tomorrow', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        // Time Picker
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Inspection Time *',
-                                style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedTime,
-                                    hint: const Text('Select Time', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                                    isExpanded: true,
-                                    icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.textMuted),
-                                    items: _timeSlots.map((t) => DropdownMenuItem(
-                                      value: t,
-                                      child: Text(t, style: const TextStyle(fontSize: 12)),
-                                    )).toList(),
-                                    onChanged: (v) => setState(() => _selectedTime = v),
-                                  ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Time Picker
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Inspection Time', style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedTime,
+                                  hint: const Text('Select Time', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                                  isExpanded: true,
+                                  icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.textMuted),
+                                  items: _timeSlots.map((t) => DropdownMenuItem(
+                                    value: t['value'],
+                                    child: Text(t['label']!, style: const TextStyle(fontSize: 12)),
+                                  )).toList(),
+                                  onChanged: (v) => setState(() => _selectedTime = v),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Available between 10:00 AM - 5:00 PM',
-                                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text('10:00 AM - 5:00 PM', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ]),
                   ],
                 ),
               ),
@@ -458,18 +350,8 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                      : Text(
-                    _orderInspection ? 'Proceed to Payment (Rs 200)' : 'Submit Enquiry',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Submit Enquiry', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(height: 24),
@@ -488,13 +370,7 @@ class _FormField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
 
-  const _FormField({
-    required this.ctrl,
-    required this.hint,
-    this.maxLines = 1,
-    this.keyboardType,
-    this.validator,
-  });
+  const _FormField({required this.ctrl, required this.hint, this.maxLines = 1, this.keyboardType, this.validator});
 
   @override
   Widget build(BuildContext context) {

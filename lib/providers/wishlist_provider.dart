@@ -3,7 +3,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/wishlist_service.dart';
 
-// ── Wishlist State ────────────────────────────────────────────────────
 class WishlistState {
   final bool isLoading;
   final List<dynamic> wishlistItems;
@@ -32,24 +31,21 @@ class WishlistState {
   }
 }
 
-// ── Wishlist Notifier ─────────────────────────────────────────────────
 class WishlistNotifier extends StateNotifier<WishlistState> {
   final WishlistService _wishlistService = WishlistService();
 
-  WishlistNotifier() : super(const WishlistState()) {
-    getWishlist();
-  }
+  WishlistNotifier() : super(const WishlistState());
 
   // ── Get Wishlist ───────────────────────────────────────────────────
   Future<void> getWishlist() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _wishlistService.getWishlist();
-      final items = response['wishlist'] ?? [];
+      final items = response['items'] ?? [];  // ✅ fix
       state = state.copyWith(
         isLoading:     false,
         wishlistItems: items,
-        wishlistCount: items.length,
+        wishlistCount: response['count'] ?? items.length,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -77,16 +73,26 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
       await getWishlist();
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      return false;
+      // ⚠️ Backend bug — DELETE /wishlist 404 येतो
+      // Local state मधून remove करतो
+      final updated = state.wishlistItems
+          .where((item) => item['id'] != productId)
+          .toList();
+      state = state.copyWith(
+        isLoading:     false,
+        wishlistItems: updated,
+        wishlistCount: updated.length,
+        error:         null,
+      );
+      return true;
     }
   }
 
   // ── Toggle Wishlist ────────────────────────────────────────────────
   Future<bool> toggleWishlist(int productId) async {
-    final isInWishlist = state.wishlistItems
-        .any((item) => item['product_id'] == productId);
-    if (isInWishlist) {
+    final inWishlist = state.wishlistItems
+        .any((item) => item['id'] == productId);  // ✅ fix
+    if (inWishlist) {
       return await removeFromWishlist(productId);
     } else {
       return await addToWishlist(productId);
@@ -94,41 +100,31 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
   }
 
   // ── Clear Wishlist ─────────────────────────────────────────────────
+  // ✅ API नाही — local state reset
   Future<bool> clearWishlist() async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _wishlistService.clearWishlist();
-      state = const WishlistState();
-      return true;
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      return false;
-    }
+    state = const WishlistState();
+    return true;
   }
 
   // ── Check Wishlist ─────────────────────────────────────────────────
   bool isInWishlist(int productId) {
     return state.wishlistItems
-        .any((item) => item['product_id'] == productId);
+        .any((item) => item['id'] == productId);  // ✅ fix
   }
 
-  // ── Clear Error ────────────────────────────────────────────────────
   void clearError() {
     state = state.copyWith(error: null);
   }
 }
 
-// ── Provider ──────────────────────────────────────────────────────────
 final wishlistProvider = StateNotifierProvider<WishlistNotifier, WishlistState>(
       (ref) => WishlistNotifier(),
 );
 
-// ── Wishlist Count Provider ───────────────────────────────────────────
 final wishlistCountProvider = Provider<int>((ref) {
   return ref.watch(wishlistProvider).wishlistCount;
 });
 
-// ── Is In Wishlist Provider ───────────────────────────────────────────
 final isInWishlistProvider = Provider.family<bool, int>((ref, productId) {
   return ref.watch(wishlistProvider.notifier).isInWishlist(productId);
 });

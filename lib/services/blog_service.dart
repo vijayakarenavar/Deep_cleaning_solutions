@@ -6,6 +6,7 @@ class BlogService {
   final ApiClient _api = ApiClient();
 
   // ── Get All Blogs ─────────────────────────────────────────────────
+  // ✅ API doc: GET /blogs
   Future<Map<String, dynamic>> getBlogs({
     String? category,
     String? search,
@@ -23,32 +24,29 @@ class BlogService {
   }
 
   // ── Get Blog Detail ───────────────────────────────────────────────
+  // ✅ API doc: GET /blogs/{slug}
   Future<Map<String, dynamic>> getBlogDetail(String slug) async {
     final response = await _api.get('/blogs/$slug');
     return response.data;
   }
 
-  // ── Get Blog Categories ───────────────────────────────────────────
-  Future<Map<String, dynamic>> getBlogCategories() async {
-    final response = await _api.get('/blogs/categories');
-    return response.data;
-  }
-
-  // ── Get Recent Blogs ──────────────────────────────────────────────
-  Future<Map<String, dynamic>> getRecentBlogs() async {
-    final response = await _api.get(
-      '/blogs',
-      queryParams: {
-        'sort':  'latest',
-        'limit': 5,
-      },
+  // ── Add Blog Comment ──────────────────────────────────────────────
+  // ✅ API doc: POST /blogs/{blog}/comment
+  Future<Map<String, dynamic>> addComment({
+    required int blogId,
+    required String comment,
+  }) async {
+    final response = await _api.post(
+      '/blogs/$blogId/comment',
+      data: {'comment': comment},
     );
     return response.data;
   }
 
-  // ── Get Related Blogs ─────────────────────────────────────────────
-  Future<Map<String, dynamic>> getRelatedBlogs(String slug) async {
-    final response = await _api.get('/blogs/$slug/related');
+  // ── Like / Unlike Blog ────────────────────────────────────────────
+  // ✅ API doc: POST /blogs/{blog}/like
+  Future<Map<String, dynamic>> toggleLike(int blogId) async {
+    final response = await _api.post('/blogs/$blogId/like', data: {});
     return response.data;
   }
 }

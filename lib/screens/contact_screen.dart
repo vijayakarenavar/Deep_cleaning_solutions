@@ -1,3 +1,5 @@
+// lib/screens/contact_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
@@ -14,14 +16,28 @@ class ContactScreen extends ConsumerStatefulWidget {
 }
 
 class _ContactScreenState extends ConsumerState<ContactScreen> {
-  final _formKey    = GlobalKey<FormState>();
-  final _nameCtrl   = TextEditingController();
-  final _emailCtrl  = TextEditingController();
-  final _phoneCtrl  = TextEditingController();
-  final _msgCtrl    = TextEditingController();
-  bool _isLoading   = false;
+  final _formKey     = GlobalKey<FormState>();
+  final _nameCtrl    = TextEditingController();
+  final _emailCtrl   = TextEditingController();
+  final _mobileCtrl  = TextEditingController();  // ✅ FIX: phone → mobile
+  final _serviceCtrl = TextEditingController();  // ✅ FIX: 'service' field add केला
+  final _msgCtrl     = TextEditingController();
+  bool _isLoading    = false;
 
   final ContactService _contactService = ContactService();
+
+  // ✅ Service options for dropdown
+  final List<String> _services = [
+    'Home Cleaning',
+    'Office Cleaning',
+    'Flat Cleaning',
+    'Bungalow Cleaning',
+    'Society Cleaning',
+    'Restaurant Cleaning',
+    'Car Wash',
+    'Other',
+  ];
+  String? _selectedService;
 
   @override
   void initState() {
@@ -29,9 +45,9 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
     Future.microtask(() {
       final user = ref.read(authProvider).user;
       if (user != null) {
-        _nameCtrl.text  = (user['name']   ?? '').toString();
-        _emailCtrl.text = (user['email']  ?? '').toString();
-        _phoneCtrl.text = (user['mobile'] ?? user['phone'] ?? '').toString();
+        _nameCtrl.text   = (user['name']   ?? '').toString();
+        _emailCtrl.text  = (user['email']  ?? '').toString();
+        _mobileCtrl.text = (user['mobile'] ?? user['phone'] ?? '').toString();
       }
     });
   }
@@ -40,7 +56,8 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
+    _mobileCtrl.dispose();
+    _serviceCtrl.dispose();
     _msgCtrl.dispose();
     super.dispose();
   }
@@ -57,15 +74,18 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
 
     setState(() => _isLoading = true);
     try {
+      // ✅ FIX: phone → mobile, service field add
       await _contactService.sendMessage(
         name:    _nameCtrl.text.trim(),
         email:   _emailCtrl.text.trim(),
-        phone:   _phoneCtrl.text.trim(),
+        mobile:  _mobileCtrl.text.trim(),
+        service: _selectedService ?? _serviceCtrl.text.trim(),
         message: _msgCtrl.text.trim(),
       );
 
       if (mounted) {
         _msgCtrl.clear();
+        setState(() => _selectedService = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Message sent successfully!'),
@@ -143,41 +163,14 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
               ),
               child: Column(
                 children: [
-                  _ContactItem(
-                    icon: Icons.phone_outlined,
-                    color: AppColors.primary,
-                    label: 'Phone',
-                    value: '+91 7558634862',
-                    onTap: () => _launchUrl('tel:+917558634862'),
-                  ),
-                  _ContactItem(
-                    icon: Icons.email_outlined,
-                    color: AppColors.secondary,
-                    label: 'Email',
-                    value: 'contact@suvarnarajgroup.com',
-                    onTap: () => _launchUrl('mailto:contact@suvarnarajgroup.com'),
-                  ),
-                  _ContactItem(
-                    icon: Icons.location_on_outlined,
-                    color: AppColors.primary,
-                    label: 'Address',
-                    value: 'Pune, Maharashtra',
-                    onTap: () => _launchUrl('https://maps.google.com/?q=Pune,Maharashtra'),
-                  ),
-                  _ContactItem(
-                    icon: Icons.chat_outlined,
-                    color: AppColors.green,
-                    label: 'WhatsApp',
-                    value: '+91 7558634862',
-                    isLast: true,
-                    onTap: () => _launchUrl('https://wa.me/917558634862'),
-                  ),
+                  _ContactItem(icon: Icons.phone_outlined, color: AppColors.primary,   label: 'Phone',    value: '+91 7558634862',              onTap: () => _launchUrl('tel:+917558634862')),
+                  _ContactItem(icon: Icons.email_outlined, color: AppColors.secondary, label: 'Email',    value: 'contact@suvarnarajgroup.com', onTap: () => _launchUrl('mailto:contact@suvarnarajgroup.com')),
+                  _ContactItem(icon: Icons.location_on_outlined, color: AppColors.primary, label: 'Address', value: 'Pune, Maharashtra',        onTap: () => _launchUrl('https://maps.google.com/?q=Pune,Maharashtra')),
+                  _ContactItem(icon: Icons.chat_outlined, color: AppColors.green,       label: 'WhatsApp', value: '+91 7558634862', isLast: true, onTap: () => _launchUrl('https://wa.me/917558634862')),
                 ],
               ),
             ),
@@ -189,9 +182,7 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
               ),
               child: Form(
                 key: _formKey,
@@ -200,38 +191,40 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                   children: [
                     Text(
                       'Send a Message',
-                      style: TextStyle(
-                        fontSize: R.sp(context, 15),
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.black,
-                      ),
+                      style: TextStyle(fontSize: R.sp(context, 15), fontWeight: FontWeight.w700, color: AppColors.black),
                     ),
                     const SizedBox(height: 12),
-                    _InputField(
-                      ctrl: _nameCtrl,
-                      hint: 'Your Name',
-                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    _InputField(ctrl: _nameCtrl,   hint: 'Your Name',    validator: (v) => v!.isEmpty ? 'Required' : null),
+                    const SizedBox(height: 10),
+                    _InputField(ctrl: _emailCtrl,  hint: 'Your Email',   keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Required' : null),
+                    const SizedBox(height: 10),
+                    // ✅ FIX: phone → mobile
+                    _InputField(ctrl: _mobileCtrl, hint: 'Mobile Number', keyboardType: TextInputType.phone, validator: (v) => v!.isEmpty ? 'Required' : null),
+                    const SizedBox(height: 10),
+                    // ✅ FIX: Service dropdown add केला
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedService,
+                          hint: const Text('Select Service', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+                          items: _services.map((s) => DropdownMenuItem(
+                            value: s,
+                            child: Text(s, style: const TextStyle(fontSize: 13)),
+                          )).toList(),
+                          onChanged: (v) => setState(() => _selectedService = v),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    _InputField(
-                      ctrl: _emailCtrl,
-                      hint: 'Your Email',
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (v) => v!.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 10),
-                    _InputField(
-                      ctrl: _phoneCtrl,
-                      hint: 'Phone Number',
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 10),
-                    _InputField(
-                      ctrl: _msgCtrl,
-                      hint: 'Your Message...',
-                      maxLines: 4,
-                      validator: (v) => v!.isEmpty ? 'Required' : null,
-                    ),
+                    _InputField(ctrl: _msgCtrl, hint: 'Your Message...', maxLines: 4, validator: (v) => v!.isEmpty ? 'Required' : null),
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
@@ -245,18 +238,8 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                           elevation: 0,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                            : const Text(
-                          'Send Message',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                        ),
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('Send Message', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],
@@ -277,14 +260,7 @@ class _ContactItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _ContactItem({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.value,
-    this.isLast = false,
-    this.onTap,
-  });
+  const _ContactItem({required this.icon, required this.color, required this.label, required this.value, this.isLast = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -298,12 +274,8 @@ class _ContactItem extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
+              width: 36, height: 36,
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
               child: Icon(icon, color: color, size: 18),
             ),
             const SizedBox(width: 12),
@@ -311,21 +283,13 @@ class _ContactItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
-                  ),
+                  Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(fontSize: 13, color: AppColors.black, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(value, style: const TextStyle(fontSize: 13, color: AppColors.black, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-            if (onTap != null)
-              const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
+            if (onTap != null) const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 18),
           ],
         ),
       ),
@@ -340,13 +304,7 @@ class _InputField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
 
-  const _InputField({
-    required this.ctrl,
-    required this.hint,
-    this.maxLines = 1,
-    this.keyboardType,
-    this.validator,
-  });
+  const _InputField({required this.ctrl, required this.hint, this.maxLines = 1, this.keyboardType, this.validator});
 
   @override
   Widget build(BuildContext context) {
@@ -360,22 +318,10 @@ class _InputField extends StatelessWidget {
         hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
         filled: true,
         fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.secondary),
-        ),
+        border:        OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+        errorBorder:   OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.secondary)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );

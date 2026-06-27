@@ -16,58 +16,6 @@ class BlogsScreen extends ConsumerStatefulWidget {
 class _BlogsScreenState extends ConsumerState<BlogsScreen> {
   int _selectedCategory = 0;
 
-  // ── Static fallback categories ────────────────────────────────────
-  static const List<Map<String, dynamic>> _staticBlogs = [
-    {
-      'category': 'Cleaning',
-      'title': 'How to Choose the Right Office Cleaning Company: A Complete Guide',
-      'desc': 'A clean office is not just about looks. It directly affects employee health, productivity, and your company\'s professionalism.',
-      'icon': '🏢',
-      'color': 0xFFD5E8D4,
-      'slug': '',
-    },
-    {
-      'category': 'Cleaning',
-      'title': 'Cleaning Standards for Corporate Offices in Pune: Why Deep Cleaning Is Essential',
-      'desc': 'Cleanliness as a Corporate Priority in Pune has emerged as one of India\'s most important corporate and IT hubs.',
-      'icon': '🏙️',
-      'color': 0xFFDAE8FC,
-      'slug': '',
-    },
-    {
-      'category': 'Home Care',
-      'title': 'How to Maintain Home Cleanliness After the Monsoon',
-      'desc': 'The monsoon season brings relief from heat, but once the rains stop, they often leave behind dampness, dirt, and hidden issues.',
-      'icon': '🏠',
-      'color': 0xFFE8DFF5,
-      'slug': '',
-    },
-    {
-      'category': 'Tips',
-      'title': '5 Easy Ways to Keep Your Kitchen Spotless Every Day',
-      'desc': 'The kitchen is the heart of every home. Keeping it clean not only ensures hygiene but also makes cooking more enjoyable.',
-      'icon': '🍳',
-      'color': 0xFFFFE6CC,
-      'slug': '',
-    },
-    {
-      'category': 'Cleaning',
-      'title': 'Why Professional Bathroom Cleaning is Better Than DIY',
-      'desc': 'Bathrooms are breeding grounds for germs and bacteria. Professional cleaning ensures deep sanitization that regular cleaning can\'t.',
-      'icon': '🚿',
-      'color': 0xFFDBE4EE,
-      'slug': '',
-    },
-    {
-      'category': 'Tips',
-      'title': 'Top 7 Signs You Need a Deep Cleaning Service Right Now',
-      'desc': 'Most people clean their homes regularly, but there are times when a regular clean just isn\'t enough. Here are the signs.',
-      'icon': '✨',
-      'color': 0xFFF8D7DA,
-      'slug': '',
-    },
-  ];
-
   static const List<int> _colors = [
     0xFFD5E8D4, 0xFFDAE8FC, 0xFFE8DFF5,
     0xFFFFE6CC, 0xFFDBE4EE, 0xFFF8D7DA,
@@ -80,49 +28,46 @@ class _BlogsScreenState extends ConsumerState<BlogsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(blogProvider.notifier).getBlogs();
-      ref.read(blogProvider.notifier).getBlogCategories();
-    });
+    Future.microtask(() => ref.read(blogProvider.notifier).getBlogs());
+  }
+
+  // ✅ /blogs response मधून categories येतात — blog_provider मधून
+  List<String> get _categories {
+    final cats = ref.watch(blogProvider).categories;
+    if (cats.isEmpty) return ['All Posts'];
+    return ['All Posts', ...cats.map((c) => c['name'].toString())];
   }
 
   List<Map<String, dynamic>> get _blogs {
     final blogState = ref.watch(blogProvider);
-    if (blogState.blogs.isNotEmpty) {
-      return blogState.blogs.asMap().entries.map((e) {
-        final i = e.key;
-        final b = e.value;
-        return {
-          'category': (b['category'] ?? b['category_name'] ?? 'Cleaning').toString(),
-          'title':    (b['title']    ?? '').toString(),
-          'desc':     (b['desc']     ?? b['description'] ?? b['excerpt'] ?? '').toString(),
-          'icon':     _icons[i % _icons.length],
-          'color':    _colors[i % _colors.length],
-          'slug':     (b['slug']     ?? '').toString(),
-          'image':    (b['image']    ?? b['thumbnail'] ?? '').toString(),
-        };
-      }).toList();
-    }
-    return _staticBlogs;
-  }
-
-  List<String> get _categories {
-    final blogState = ref.watch(blogProvider);
-    if (blogState.categories.isNotEmpty) {
-      return ['All Posts', ...blogState.categories.map((c) => c['name'].toString())];
-    }
-    return ['All Posts', 'Cleaning', 'Tips', 'Home Care'];
+    if (blogState.blogs.isEmpty) return [];
+    return blogState.blogs.asMap().entries.map((e) {
+      final i = e.key;
+      final b = e.value;
+      return {
+        'category': (b['category'] ?? b['category_name'] ?? 'Cleaning').toString(),
+        'title':    (b['title']    ?? '').toString(),
+        'desc':     (b['desc']     ?? b['description'] ?? b['excerpt'] ?? '').toString(),
+        'icon':     _icons[i % _icons.length],
+        'color':    _colors[i % _colors.length],
+        'slug':     (b['slug']     ?? '').toString(),
+        'image':    (b['image']    ?? b['thumbnail'] ?? '').toString(),
+      };
+    }).toList();
   }
 
   List<Map<String, dynamic>> get _filtered {
     if (_selectedCategory == 0) return _blogs;
-    final cat = _categories[_selectedCategory];
+    final cats = _categories;
+    if (_selectedCategory >= cats.length) return _blogs;
+    final cat = cats[_selectedCategory];
     return _blogs.where((b) => b['category'] == cat).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final blogState = ref.watch(blogProvider);
+    final categories = _categories;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -135,6 +80,7 @@ class _BlogsScreenState extends ConsumerState<BlogsScreen> {
             const SRGSliverAppBar(),
             SliverList(
               delegate: SliverChildListDelegate([
+
                 // ── Hero ──────────────────────────────
                 Container(
                   width: double.infinity,
@@ -178,14 +124,17 @@ class _BlogsScreenState extends ConsumerState<BlogsScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _categories.length,
+                    itemCount: categories.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       final isActive = _selectedCategory == i;
                       return GestureDetector(
                         onTap: () => setState(() {
                           _selectedCategory = i;
-                          ref.read(blogProvider.notifier).setSelectedCategory(i);
+                          ref.read(blogProvider.notifier).setSelectedCategory(
+                            i,
+                            categoryName: i == 0 ? null : categories[i],
+                          );
                         }),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
@@ -198,7 +147,7 @@ class _BlogsScreenState extends ConsumerState<BlogsScreen> {
                             ),
                           ),
                           child: Text(
-                            _categories[i],
+                            categories[i],
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -214,14 +163,14 @@ class _BlogsScreenState extends ConsumerState<BlogsScreen> {
                 const SizedBox(height: 12),
 
                 // ── Loading / Error / Blog List ───────
-                if (blogState.isLoading)
+                if (blogState.isLoading && _filtered.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(32),
                     child: Center(
                       child: CircularProgressIndicator(color: AppColors.primary),
                     ),
                   )
-                else if (blogState.error != null && _blogs == _staticBlogs)
+                else if (blogState.error != null)
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -247,15 +196,24 @@ class _BlogsScreenState extends ConsumerState<BlogsScreen> {
                       ],
                     ),
                   )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
-                    itemBuilder: (_, i) => _BlogCard(data: _filtered[i]),
-                  ),
+                else if (_filtered.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(
+                        child: Text('No blogs found.',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (_, i) => _BlogCard(data: _filtered[i]),
+                    ),
               ]),
             ),
           ],
@@ -291,7 +249,6 @@ class _BlogCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: Stack(
@@ -329,7 +286,6 @@ class _BlogCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Content
             Padding(
               padding: const EdgeInsets.all(14),
               child: Column(

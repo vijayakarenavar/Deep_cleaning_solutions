@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/widgets/section_title.dart';
 import 'package:dcs_app/screens/flat_category_screen.dart';
@@ -114,18 +115,18 @@ class ServiceCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Overlay buttons
-                  Positioned(
-                    bottom: 12, left: 0, right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _OverlayBtn(icon: Icons.open_in_full),
-                        const SizedBox(width: 10),
-                        _OverlayBtn(icon: Icons.shopping_bag_outlined),
-                      ],
+// Overlay buttons
+                    Positioned(
+                      bottom: 12, left: 0, right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _OverlayBtn(icon: Icons.open_in_full),
+                          const SizedBox(width: 10),
+                          _OverlayBtn(icon: Icons.shopping_bag_outlined, onTap: () => context.go('/cart')),
+                        ],
+                      ),
                     ),
-                  ),
                   // NEW badge
                   if (data['isNew'] == true)
                     Positioned(
@@ -168,18 +169,22 @@ class ServiceCard extends StatelessWidget {
 
 class _OverlayBtn extends StatelessWidget {
   final IconData icon;
-  const _OverlayBtn({required this.icon});
+  final VoidCallback? onTap;
+  const _OverlayBtn({required this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 38, height: 38,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 6)],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 6)],
+        ),
+        child: Icon(icon, size: 18, color: AppColors.black),
       ),
-      child: Icon(icon, size: 18, color: AppColors.black),
     );
   }
 }

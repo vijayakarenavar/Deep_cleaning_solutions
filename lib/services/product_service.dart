@@ -5,7 +5,6 @@ import 'api_client.dart';
 class ProductService {
   final ApiClient _api = ApiClient();
 
-  // ── Get All Products ──────────────────────────────────────────────
   Future<Map<String, dynamic>> getProducts({
     String? category,
     String? search,
@@ -19,37 +18,32 @@ class ProductService {
         'page': page,
       },
     );
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Get Product Detail ────────────────────────────────────────────
   Future<Map<String, dynamic>> getProductDetail(int id) async {
     final response = await _api.get('/products/$id');
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Get Furnished Flats ───────────────────────────────────────────
   Future<Map<String, dynamic>> getFurnishedFlats() async {
     final response = await _api.get('/products/furnished-flats');
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Get Unfurnished Flats ─────────────────────────────────────────
   Future<Map<String, dynamic>> getUnfurnishedFlats() async {
     final response = await _api.get('/products/unfurnished-flats');
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Get Flat Category ─────────────────────────────────────────────
   Future<Map<String, dynamic>> getFlatCategory(String type) async {
     final response = await _api.get(
       '/products/flat-category',
       queryParams: {'type': type},
     );
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Get BHK List ──────────────────────────────────────────────────
   Future<Map<String, dynamic>> getBHKList({
     required String type,
     required String bhk,
@@ -61,25 +55,23 @@ class ProductService {
         'bhk':  bhk,
       },
     );
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Search Products ───────────────────────────────────────────────
+  // ✅ FIX: query param 'q' → 'keyword'
   Future<Map<String, dynamic>> searchProducts(String query) async {
     final response = await _api.get(
       '/products/search',
-      queryParams: {'q': query},
+      queryParams: {'keyword': query},
     );
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Get Product Reviews ───────────────────────────────────────────
   Future<Map<String, dynamic>> getProductReviews(int productId) async {
     final response = await _api.get('/products/$productId/reviews');
-    return response.data;
+    return _unwrap(response.data);
   }
 
-  // ── Add Product Review ────────────────────────────────────────────
   Future<Map<String, dynamic>> addProductReview({
     required int productId,
     required int rating,
@@ -92,6 +84,21 @@ class ProductService {
         'review': review,
       },
     );
-    return response.data;
+    return _unwrap(response.data);
+  }
+
+  Map<String, dynamic> _unwrap(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('data')) {
+        final inner = data['data'];
+        if (inner is Map<String, dynamic>) {
+          return inner;
+        } else if (inner is List) {
+          return {'products': inner};
+        }
+      }
+      return data;
+    }
+    return {};
   }
 }

@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/cart_provider.dart';
+import 'package:dcs_app/providers/auth_provider.dart';
 
 class ServiceDetailSheet extends ConsumerStatefulWidget {
   final String title;
   final List<Map<String, String>> services;
   final int? productId;
+  final String? slug;
 
   const ServiceDetailSheet({
     super.key,
     required this.title,
     required this.services,
     this.productId,
+    this.slug,
   });
 
   @override
@@ -34,45 +38,67 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
   }
 
   Future<void> _addToCart() async {
+    final sqft = double.tryParse(_sqftCtrl.text);
+    if (sqft == null || sqft <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter valid sq.ft.'),
+          backgroundColor: AppColors.secondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    final authState = ref.read(authProvider);
+    if (!authState.isLoggedIn) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please login to add items to cart.'),
+            backgroundColor: AppColors.secondary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+        Future.microtask(() => context.go('/login'));
+      }
+      return;
+    }
+
+    if (widget.productId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product not available.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      bool success = false;
+      final List<Map<String, dynamic>> addons = [
+        if (_cleanWalls)  {'product_id': 22},
+        if (_cleanPaint)  {'product_id': 25},
+        if (_removeCover) {'product_id': 26},
+      ];
 
-      if (widget.productId != null) {
-        // Flat product cart
-        success = await ref.read(cartProvider.notifier).addFlatToCart(
-          productId:   widget.productId!,
-          bhkType:     widget.title,
-          flatType:    widget.title.contains('Furnished') ? 'Furnished' : 'Unfurnished',
-          sqft:        double.tryParse(_sqftCtrl.text) ?? 0,
-          cleanWalls:  _cleanWalls,
-          cleanPaint:  _cleanPaint,
-          removeCover: _removeCover,
-        );
-      } else {
-        // Normal product cart
-        success = await ref.read(cartProvider.notifier).addToCart(
-          productId: 0,
-          quantity:  1,
-          extras: {
-            'title':        widget.title,
-            'sqft':         _sqftCtrl.text,
-            'clean_walls':  _cleanWalls,
-            'clean_paint':  _cleanPaint,
-            'remove_cover': _removeCover,
-          },
-        );
-      }
+      final bool success = await ref.read(cartProvider.notifier).addFlatToCart(
+        mainProductId: widget.productId!,   // ✅ productId → mainProductId
+        sqft: sqft,                          // ✅ direct sqft
+        addons: addons,                      // ✅ addons list
+      );
 
       if (mounted) {
-        Navigator.pop(context);
+        if (success) Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               success
                   ? '${widget.title} added to cart!'
-                  : ref.read(cartProvider).error ?? 'Failed to add to cart.',
+                  : (ref.read(cartProvider).error ?? 'Failed to add to cart.'),
             ),
             backgroundColor: success ? AppColors.green : AppColors.secondary,
             behavior: SnackBarBehavior.floating,

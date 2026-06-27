@@ -95,9 +95,10 @@ class ProductNotifier extends StateNotifier<ProductState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _productService.getFurnishedFlats();
+      final flats = response['products'] ?? [];
       state = state.copyWith(
         isLoading:      false,
-        furnishedFlats: response['products'] ?? [],
+        furnishedFlats: flats,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -109,9 +110,10 @@ class ProductNotifier extends StateNotifier<ProductState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _productService.getUnfurnishedFlats();
+      final flats = response['products'] ?? [];
       state = state.copyWith(
         isLoading:        false,
-        unfurnishedFlats: response['products'] ?? [],
+        unfurnishedFlats: flats,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

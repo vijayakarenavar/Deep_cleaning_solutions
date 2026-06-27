@@ -1,8 +1,7 @@
-// lib/services/api_client.dart
-
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -10,6 +9,9 @@ class ApiClient {
   ApiClient._internal();
 
   late final Dio _dio;
+
+  // ✅ 401 वर callback — main.dart मधून set करा
+  static void Function()? onUnauthorized;
 
   void init() {
     _dio = Dio(
@@ -19,31 +21,39 @@ class ApiClient {
         receiveTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '30000')),
         headers: {
           'Content-Type': 'application/json',
-          'Accept':        'application/json',
+          'Accept':       'application/json',
         },
       ),
     );
 
-    // ── Interceptors ──────────────────────────────────────────────
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Token attach करा
           final prefs = await SharedPreferences.getInstance();
           final token = prefs.getString('auth_token');
+
           if (token != null) {
+            // ✅ Logged in — Bearer token
             options.headers['Authorization'] = 'Bearer $token';
+          } else {
+            // ✅ Guest — proper UUID v4
+            final guestId = prefs.getString('guest_id')
+                ?? await _createGuestId(prefs);
+            options.headers['X-Guest-Id'] = guestId;
           }
           return handler.next(options);
         },
+
         onResponse: (response, handler) {
           return handler.next(response);
         },
+
         onError: (error, handler) async {
-          // Token expire झाला तर
           if (error.response?.statusCode == 401) {
+            // ✅ Token invalid — clear + login redirect
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('auth_token');
+            onUnauthorized?.call();
           }
           return handler.next(error);
         },
@@ -51,11 +61,14 @@ class ApiClient {
     );
   }
 
-  // ── GET ───────────────────────────────────────────────────────────
-  Future<Response> get(
-      String path, {
-        Map<String, dynamic>? queryParams,
-      }) async {
+  // ✅ Proper UUID v4
+  Future<String> _createGuestId(SharedPreferences prefs) async {
+    final id = const Uuid().v4();
+    await prefs.setString('guest_id', id);
+    return id;
+  }
+
+  Future<Response> get(String path, {Map<String, dynamic>? queryParams}) async {
     try {
       return await _dio.get(path, queryParameters: queryParams);
     } on DioException catch (e) {
@@ -63,11 +76,7 @@ class ApiClient {
     }
   }
 
-  // ── POST ──────────────────────────────────────────────────────────
-  Future<Response> post(
-      String path, {
-        Map<String, dynamic>? data,
-      }) async {
+  Future<Response> post(String path, {Map<String, dynamic>? data}) async {
     try {
       return await _dio.post(path, data: data);
     } on DioException catch (e) {
@@ -75,11 +84,7 @@ class ApiClient {
     }
   }
 
-  // ── PUT ───────────────────────────────────────────────────────────
-  Future<Response> put(
-      String path, {
-        Map<String, dynamic>? data,
-      }) async {
+  Future<Response> put(String path, {Map<String, dynamic>? data}) async {
     try {
       return await _dio.put(path, data: data);
     } on DioException catch (e) {
@@ -87,11 +92,7 @@ class ApiClient {
     }
   }
 
-  // ── DELETE ────────────────────────────────────────────────────────
-  Future<Response> delete(
-      String path, {
-        Map<String, dynamic>? data,
-      }) async {
+  Future<Response> delete(String path, {Map<String, dynamic>? data}) async {
     try {
       return await _dio.delete(path, data: data);
     } on DioException catch (e) {
@@ -99,7 +100,6 @@ class ApiClient {
     }
   }
 
-  // ── Error Handler ─────────────────────────────────────────────────
   String _handleError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:

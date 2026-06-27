@@ -1,3 +1,5 @@
+// lib/screens/register_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,64 +9,76 @@ import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
 
-import '../providers/home_provider.dart';
-
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey     = GlobalKey<FormState>();
-  final _emailCtrl   = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  bool _obscurePassword = true;
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _formKey                = GlobalKey<FormState>();
+  final _nameCtrl               = TextEditingController();
+  final _emailCtrl              = TextEditingController();
+  final _mobileCtrl             = TextEditingController();
+  final _passwordCtrl           = TextEditingController();
+  final _confirmPasswordCtrl    = TextEditingController();
+  bool _obscurePassword         = true;
+  bool _obscureConfirmPassword  = true;
+  bool _didNavigateAfterRegister = false;
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _mobileCtrl.dispose();
     _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).login(
+    // ✅ mobile काढला — API doc मध्ये register मध्ये mobile नाही
+    final success = await ref.read(authProvider.notifier).register(
+      name:     _nameCtrl.text.trim(),
       email:    _emailCtrl.text.trim(),
       password: _passwordCtrl.text.trim(),
     );
 
     if (!mounted) return;
 
-    if (success) {
-      // Login नंतर home data refresh करा
-      await ref.read(homeProvider.notifier).getHomeData();
-      if (mounted) context.go('/');
-    } else {
+    if (!success) {
+      final err = ref.read(authProvider).error ?? 'Registration failed!';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ref.read(authProvider).error ?? 'Login failed!'),
+          content: Text(err),
           backgroundColor: AppColors.secondary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
+      return;
     }
+
+    context.go('/login');
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
+    if (!_didNavigateAfterRegister && !authState.isLoading && authState.isLoggedIn) {
+      _didNavigateAfterRegister = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/'));
+    }
+
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Hero ──────────────────────────────
             Container(
               width: double.infinity,
               height: R.wp(context, 55),
@@ -87,7 +101,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Welcome Back!',
+                      'Create Account',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -96,9 +110,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Login to continue',
+                      'Sign up to get started',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 13,
                       ),
                     ),
@@ -106,8 +120,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
             ),
-
-            // ── Form ──────────────────────────────
             Padding(
               padding: const EdgeInsets.all(24),
               child: Form(
@@ -116,6 +128,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
+
+                    // Full Name
+                    const Text(
+                      'Full Name',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _nameCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      validator: (v) => v!.isEmpty ? 'Name required' : null,
+                      decoration: _inputDecoration(
+                        hint: 'Enter your full name',
+                        icon: Icons.person_outline,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Email
                     const Text(
@@ -138,6 +167,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Mobile Number — UI ठेवला, API ला पाठवत नाही
+                    const Text(
+                      'Mobile Number',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _mobileCtrl,
+                      keyboardType: TextInputType.phone,
+                      validator: (v) {
+                        if (v!.isEmpty) return 'Mobile required';
+                        if (v.length < 10) return 'Invalid mobile number';
+                        return null;
+                      },
+                      decoration: _inputDecoration(
+                        hint: 'Enter your mobile number',
+                        icon: Icons.phone_outlined,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
                     // Password
                     const Text(
                       'Password',
@@ -147,7 +197,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextFormField(
                       controller: _passwordCtrl,
                       obscureText: _obscurePassword,
-                      validator: (v) => v!.isEmpty ? 'Password required' : null,
+                      validator: (v) {
+                        if (v!.isEmpty) return 'Password required';
+                        if (v.length < 6) return 'Password must be at least 6 characters';
+                        return null;
+                      },
                       decoration: _inputDecoration(
                         hint: 'Enter your password',
                         icon: Icons.lock_outline,
@@ -161,30 +215,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
 
-                    // Forgot Password
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
+                    // Confirm Password
+                    const Text(
+                      'Confirm Password',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _confirmPasswordCtrl,
+                      obscureText: _obscureConfirmPassword,
+                      validator: (v) {
+                        if (v!.isEmpty) return 'Confirm password required';
+                        if (v != _passwordCtrl.text) return 'Passwords do not match';
+                        return null;
+                      },
+                      decoration: _inputDecoration(
+                        hint: 'Confirm your password',
+                        icon: Icons.lock_outline,
+                        suffix: GestureDetector(
+                          onTap: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          child: Icon(
+                            _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            color: AppColors.textMuted,
+                            size: 20,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-// Login Button
+                    // Register Button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _login,
+                        onPressed: authState.isLoading ? null : _register,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -194,57 +260,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         child: authState.isLoading
                             ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                             : const Text(
-                                'Login',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                              ),
+                          'Register',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                    // Divider
+                    // Login Link
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Expanded(child: Divider(color: AppColors.border)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'OR',
+                        const Text(
+                          'Already have an account? ',
+                          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                        ),
+                        GestureDetector(
+                          onTap: () => context.go('/login'),
+                          child: const Text(
+                            'Login',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textMuted,
+                              fontSize: 13,
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        const Expanded(child: Divider(color: AppColors.border)),
                       ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Register Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => context.go('/register'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          side: const BorderSide(color: AppColors.primary),
-                        ),
-                        child: const Text(
-                          'Create New Account',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 24),
                   ],

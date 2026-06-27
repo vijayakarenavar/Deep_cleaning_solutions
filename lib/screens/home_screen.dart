@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dcs_app/screens/services_section.dart';
 import 'package:dcs_app/widgets/srg_app_bar.dart';
 import 'package:dcs_app/widgets/srg_drawer.dart';
@@ -11,6 +12,7 @@ import 'package:dcs_app/screens/faq_section.dart';
 import 'package:dcs_app/screens/how_we_work_section.dart';
 import 'package:dcs_app/screens/our_team_section.dart';
 import 'package:dcs_app/providers/home_provider.dart';
+import 'package:dcs_app/providers/auth_provider.dart';
 
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -34,6 +36,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final homeState = ref.watch(homeProvider);
+    final authState = ref.watch(authProvider);
+
+    // Auth initialize होईपर्यंत splash दाखवा
+    if (!authState.isInitialized) {
+      return const Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -60,6 +73,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 BannerSection(
                   banners: homeState.banners,
                 ),
+                if (!authState.isLoggedIn)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => context.go('/login'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Login / Register', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 ServicesSection(
                   categories: homeState.categories,

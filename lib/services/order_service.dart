@@ -5,7 +5,7 @@ import 'api_client.dart';
 class OrderService {
   final ApiClient _api = ApiClient();
 
-  // ── Get All Orders ────────────────────────────────────────────────
+  // ✅ GET /orders
   Future<Map<String, dynamic>> getOrders({
     String? status,
     int page = 1,
@@ -20,112 +20,111 @@ class OrderService {
     return response.data;
   }
 
-  // ── Get Order Detail ──────────────────────────────────────────────
+  // ✅ GET /orders/{orderId}
   Future<Map<String, dynamic>> getOrderDetail(int orderId) async {
     final response = await _api.get('/orders/$orderId');
     return response.data;
   }
 
-  // ── Place Order ───────────────────────────────────────────────────
-  Future<Map<String, dynamic>> placeOrder({
-    required String address,
-    required String city,
-    required String state,
-    required String date,
-    required String time,
-    String? notes,
-  }) async {
-    final response = await _api.post(
-      '/orders/place',
-      data: {
-        'address': address,
-        'city':    city,
-        'state':   state,
-        'date':    date,
-        'time':    time,
-        if (notes != null) 'notes': notes,
-      },
-    );
+  // ✅ GET /orders/{orderId}/payment-status
+  Future<Map<String, dynamic>> getPaymentStatus(int orderId) async {
+    final response = await _api.get('/orders/$orderId/payment-status');
     return response.data;
   }
 
-  // ── Cancel Order ──────────────────────────────────────────────────
-  Future<Map<String, dynamic>> cancelOrder(int orderId) async {
-    final response = await _api.put('/orders/$orderId/cancel');
+  // ✅ GET /checkout/init
+  Future<Map<String, dynamic>> checkoutInit() async {
+    final response = await _api.get('/checkout/init');
     return response.data;
   }
 
-  // ── Get Order Status ──────────────────────────────────────────────
-  Future<Map<String, dynamic>> getOrderStatus(int orderId) async {
-    final response = await _api.get('/orders/$orderId/status');
-    return response.data;
-  }
-
-  // ── Get Time Slots ────────────────────────────────────────────────
+  // ✅ FIX: removed extra 'service_type' field — API ला फक्त 'date' लागतो
   Future<Map<String, dynamic>> getTimeSlots({
     required String date,
-    required String serviceType,
   }) async {
-    final response = await _api.get(
+    final response = await _api.post(
       '/checkout/time-slots',
-      queryParams: {
-        'date':         date,
-        'service_type': serviceType,
+      data: {
+        'date': date,
       },
     );
     return response.data;
   }
 
-  // ── Checkout Init ─────────────────────────────────────────────────
-  Future<Map<String, dynamic>> checkoutInit({
+  // ✅ FIX: API ला 'country_id' (int) लागतो
+  Future<Map<String, dynamic>> checkoutSummary({
+    required int countryId,
+  }) async {
+    final response = await _api.post(
+      '/checkout/summary',
+      data: {
+        'country_id': countryId,
+      },
+    );
+    return response.data;
+  }
+
+  // ✅ FIX: processOrder — complete body with all required fields
+  Future<Map<String, dynamic>> processOrder({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required int country,
     required String address,
     required String city,
     required String state,
-    required String date,
-    required String time,
-  }) async {
-    final response = await _api.post(
-      '/checkout/init',
-      data: {
-        'address': address,
-        'city':    city,
-        'state':   state,
-        'date':    date,
-        'time':    time,
-      },
-    );
-    return response.data;
-  }
-
-  // ── Process Payment ───────────────────────────────────────────────
-  Future<Map<String, dynamic>> processPayment({
-    required int orderId,
-    required String paymentMethod,
-    required double amount,
+    required String zip,
+    required String mobile,
+    required String bookingDate,
+    required String bookingTime,
   }) async {
     final response = await _api.post(
       '/checkout/process',
       data: {
-        'order_id':       orderId,
-        'payment_method': paymentMethod,
-        'amount':         amount,
+        'first_name':   firstName,
+        'last_name':    lastName,
+        'email':        email,
+        'country':      country,
+        'address':      address,
+        'city':         city,
+        'state':        state,
+        'zip':          zip,
+        'mobile':       mobile,
+        'booking_date': bookingDate,
+        'booking_time': bookingTime,
       },
     );
     return response.data;
   }
 
-  // ── Verify Payment ────────────────────────────────────────────────
-  Future<Map<String, dynamic>> verifyPayment({
-    required String paymentId,
-    required String orderId,
-    required String signature,
+  // ✅ FIX: processAdvanceOrder — same complete body
+  Future<Map<String, dynamic>> processAdvanceOrder({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required int country,
+    required String address,
+    required String city,
+    required String state,
+    required String zip,
+    required String mobile,
+    required String bookingDate,
+    required String bookingTime,
   }) async {
     final response = await _api.post(
-      '/checkout/verify',
+      '/checkout/process-advance',
       data: {
-        'payment_id': paymentId,
-        'order_id':   orderId,
-        'signature':  signature,
+        'first_name':   firstName,
+        'last_name':    lastName,
+        'email':        email,
+        'country':      country,
+        'address':      address,
+        'city':         city,
+        'state':        state,
+        'zip':          zip,
+        'mobile':       mobile,
+        'booking_date': bookingDate,
+        'booking_time': bookingTime,
       },
     );
     return response.data;

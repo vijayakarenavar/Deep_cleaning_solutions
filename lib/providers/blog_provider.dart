@@ -3,13 +3,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/blog_service.dart';
 
-// ── Blog State ────────────────────────────────────────────────────────
 class BlogState {
   final bool isLoading;
   final List<dynamic> blogs;
-  final List<dynamic> categories;
-  final List<dynamic> recentBlogs;
-  final List<dynamic> relatedBlogs;
+  final List<dynamic> categories;  // ← परत add केलं
   final Map<String, dynamic>? selectedBlog;
   final int selectedCategory;
   final String? error;
@@ -17,9 +14,7 @@ class BlogState {
   const BlogState({
     this.isLoading        = false,
     this.blogs            = const [],
-    this.categories       = const [],
-    this.recentBlogs      = const [],
-    this.relatedBlogs     = const [],
+    this.categories       = const [],  // ← परत add केलं
     this.selectedBlog,
     this.selectedCategory = 0,
     this.error,
@@ -28,9 +23,7 @@ class BlogState {
   BlogState copyWith({
     bool? isLoading,
     List<dynamic>? blogs,
-    List<dynamic>? categories,
-    List<dynamic>? recentBlogs,
-    List<dynamic>? relatedBlogs,
+    List<dynamic>? categories,  // ← परत add केलं
     Map<String, dynamic>? selectedBlog,
     int? selectedCategory,
     String? error,
@@ -38,9 +31,7 @@ class BlogState {
     return BlogState(
       isLoading:        isLoading        ?? this.isLoading,
       blogs:            blogs            ?? this.blogs,
-      categories:       categories       ?? this.categories,
-      recentBlogs:      recentBlogs      ?? this.recentBlogs,
-      relatedBlogs:     relatedBlogs     ?? this.relatedBlogs,
+      categories:       categories       ?? this.categories,  // ← परत add केलं
       selectedBlog:     selectedBlog     ?? this.selectedBlog,
       selectedCategory: selectedCategory ?? this.selectedCategory,
       error:            error            ?? this.error,
@@ -48,16 +39,13 @@ class BlogState {
   }
 }
 
-// ── Blog Notifier ─────────────────────────────────────────────────────
 class BlogNotifier extends StateNotifier<BlogState> {
   final BlogService _blogService = BlogService();
 
-  BlogNotifier() : super(const BlogState()) {
-    getBlogs();
-    getBlogCategories();
-  }
+  BlogNotifier() : super(const BlogState());
 
   // ── Get All Blogs ──────────────────────────────────────────────────
+  // ✅ categories पण इथूनच येतात
   Future<void> getBlogs({
     String? category,
     String? search,
@@ -70,9 +58,11 @@ class BlogNotifier extends StateNotifier<BlogState> {
         search:   search,
         page:     page,
       );
+      final data = response['data'] ?? {};
       state = state.copyWith(
-        isLoading: false,
-        blogs:     response['blogs'] ?? [],
+        isLoading:  false,
+        blogs:      data['blogs']      ?? [],
+        categories: data['categories'] ?? [],  // ← /blogs मधूनच categories
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -86,85 +76,53 @@ class BlogNotifier extends StateNotifier<BlogState> {
       final response = await _blogService.getBlogDetail(slug);
       state = state.copyWith(
         isLoading:    false,
-        selectedBlog: response['blog'],
+        selectedBlog: response['data'],
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  // ── Get Blog Categories ────────────────────────────────────────────
-  Future<void> getBlogCategories() async {
-    state = state.copyWith(isLoading: true, error: null);
+  // ── Add Comment ────────────────────────────────────────────────────
+  Future<bool> addComment({
+    required int blogId,
+    required String comment,
+  }) async {
     try {
-      final response = await _blogService.getBlogCategories();
-      state = state.copyWith(
-        isLoading:  false,
-        categories: response['categories'] ?? [],
-      );
+      await _blogService.addComment(blogId: blogId, comment: comment);
+      return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(error: e.toString());
+      return false;
     }
   }
 
-  // ── Get Recent Blogs ───────────────────────────────────────────────
-  Future<void> getRecentBlogs() async {
-    state = state.copyWith(isLoading: true, error: null);
+  // ── Toggle Like ────────────────────────────────────────────────────
+  Future<bool> toggleLike(int blogId) async {
     try {
-      final response = await _blogService.getRecentBlogs();
-      state = state.copyWith(
-        isLoading:   false,
-        recentBlogs: response['blogs'] ?? [],
-      );
+      await _blogService.toggleLike(blogId);
+      return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-
-  // ── Get Related Blogs ──────────────────────────────────────────────
-  Future<void> getRelatedBlogs(String slug) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final response = await _blogService.getRelatedBlogs(slug);
-      state = state.copyWith(
-        isLoading:    false,
-        relatedBlogs: response['blogs'] ?? [],
-      );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(error: e.toString());
+      return false;
     }
   }
 
   // ── Set Selected Category ──────────────────────────────────────────
-  void setSelectedCategory(int index) {
+  void setSelectedCategory(int index, {String? categoryName}) {
     state = state.copyWith(selectedCategory: index);
     if (index == 0) {
       getBlogs();
-    } else {
-      final category = state.categories[index - 1]['name'];
-      getBlogs(category: category);
+    } else if (categoryName != null) {
+      getBlogs(category: categoryName);
     }
   }
 
-  // ── Refresh ────────────────────────────────────────────────────────
-  Future<void> refresh() async {
-    await getBlogs();
-    await getBlogCategories();
-  }
-
-  // ── Clear Error ────────────────────────────────────────────────────
-  void clearError() {
-    state = state.copyWith(error: null);
-  }
-
-  // ── Clear Selected Blog ────────────────────────────────────────────
-  void clearSelectedBlog() {
-    state = state.copyWith(selectedBlog: null);
-  }
+  Future<void> refresh()   => getBlogs();
+  void clearError()        => state = state.copyWith(error: null);
+  void clearSelectedBlog() => state = state.copyWith(selectedBlog: null);
 }
 
-// ── Provider ──────────────────────────────────────────────────────────
 final blogProvider = StateNotifierProvider<BlogNotifier, BlogState>(
       (ref) => BlogNotifier(),
-);// lib/providers/blog_provider.dart
-
+);

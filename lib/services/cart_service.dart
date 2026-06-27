@@ -5,96 +5,114 @@ import 'api_client.dart';
 class CartService {
   final ApiClient _api = ApiClient();
 
-  // ── Get Cart ──────────────────────────────────────────────────────
   Future<Map<String, dynamic>> getCart() async {
     final response = await _api.get('/cart');
-    return response.data;
+    final data = response.data['data'] ?? {};
+    return {
+      'cart_items':   data['items']    ?? [],
+      'cart_count':   data['count']    ?? 0,
+      'total_amount': double.tryParse(data['subtotal']?.toString() ?? '0') ?? 0.0,
+      'discount':     double.tryParse(data['discount']?.toString() ?? '0') ?? 0.0,
+      'final_amount': double.tryParse(data['final_amount']?.toString() ?? data['subtotal']?.toString() ?? '0') ?? 0.0,
+      'coupon_code':  data['coupon_code'],
+    };
   }
 
-  // ── Add to Cart ───────────────────────────────────────────────────
+  // ✅ FIX: product_id → id (API ला 'id' लागतो)
   Future<Map<String, dynamic>> addToCart({
     required int productId,
-    required int quantity,
     Map<String, dynamic>? extras,
   }) async {
     final response = await _api.post(
       '/cart/add',
       data: {
-        'product_id': productId,
-        'quantity':   quantity,
+        'id': productId,
         if (extras != null) ...extras,
       },
     );
     return response.data;
   }
 
-  // ── Add Flat to Cart ──────────────────────────────────────────────
-  Future<Map<String, dynamic>> addFlatToCart({
+  // ✅ FIX: product_id → id, units + unit_type API (cart/add-with-unit)
+  Future<Map<String, dynamic>> addToCartWithUnit({
     required int productId,
-    required String bhkType,
-    required String flatType,
-    required double sqft,
-    bool cleanWalls   = false,
-    bool cleanPaint   = false,
-    bool removeCover  = false,
+    required int units,
+    required String unitType,
   }) async {
     final response = await _api.post(
-      '/cart/add-flat',
+      '/cart/add-with-unit',
       data: {
-        'product_id':   productId,
-        'bhk_type':     bhkType,
-        'flat_type':    flatType,
-        'sqft':         sqft,
-        'clean_walls':  cleanWalls,
-        'clean_paint':  cleanPaint,
-        'remove_cover': removeCover,
+        'id':        productId,
+        'units':     units,
+        'unit_type': unitType,
       },
     );
     return response.data;
   }
 
-  // ── Update Cart Item ──────────────────────────────────────────────
+  // ✅ FIX: API body → main_product_id, sqft, addons array
+  Future<Map<String, dynamic>> addFlatToCart({
+    required int mainProductId,
+    required double sqft,
+    required List<Map<String, dynamic>> addons,
+  }) async {
+    final response = await _api.post(
+      '/cart/add-flat',
+      data: {
+        'main_product_id': mainProductId,
+        'sqft':            sqft,
+        'addons':          addons,
+      },
+    );
+    return response.data;
+  }
+
+  // ✅ FIX: row_id → rowId, quantity → qty
   Future<Map<String, dynamic>> updateCartItem({
-    required int cartItemId,
-    required int quantity,
+    required String rowId,
+    required int qty,
   }) async {
     final response = await _api.put(
-      '/cart/update/$cartItemId',
-      data: {'quantity': quantity},
+      '/cart/update',
+      data: {
+        'rowId': rowId,
+        'qty':   qty,
+      },
     );
     return response.data;
   }
 
-  // ── Remove Cart Item ──────────────────────────────────────────────
-  Future<Map<String, dynamic>> removeCartItem(int cartItemId) async {
-    final response = await _api.delete('/cart/remove/$cartItemId');
+  // ✅ FIX: row_id → rowId
+  Future<Map<String, dynamic>> removeCartItem(String rowId) async {
+    final response = await _api.delete(
+      '/cart/item',
+      data: {'rowId': rowId},
+    );
     return response.data;
   }
 
-  // ── Clear Cart ────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> clearCart() async {
-    final response = await _api.delete('/cart/clear');
-    return response.data;
-  }
-
-  // ── Apply Coupon ──────────────────────────────────────────────────
+  // ✅ FIX: coupon_code → code
   Future<Map<String, dynamic>> applyCoupon(String couponCode) async {
     final response = await _api.post(
-      '/cart/coupon',
-      data: {'coupon_code': couponCode},
+      '/checkout/apply-coupon',
+      data: {'code': couponCode},
     );
     return response.data;
   }
 
-  // ── Remove Coupon ─────────────────────────────────────────────────
   Future<Map<String, dynamic>> removeCoupon() async {
-    final response = await _api.delete('/cart/coupon');
+    final response = await _api.post('/checkout/remove-coupon', data: {});
     return response.data;
   }
 
-  // ── Get Cart Count ────────────────────────────────────────────────
-  Future<Map<String, dynamic>> getCartCount() async {
-    final response = await _api.get('/cart/count');
+  // ✅ FIX: product_id → id
+  Future<Map<String, dynamic>> getCartRowId({
+    required int productId,
+  }) async {
+    final response = await _api.post(
+      '/cart/row-id',
+      data: {'id': productId},
+    );
     return response.data;
   }
 }

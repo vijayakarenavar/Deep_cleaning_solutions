@@ -142,6 +142,18 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     }
     return null;
   }
+  // _getProductId च्या खाली हा नवीन method add करा:
+  String? _getSlug(int index) {
+    final productState = ref.read(productProvider);
+    final products = widget.type == 'Furnished'
+        ? productState.furnishedFlats
+        : productState.unfurnishedFlats;
+
+    if (products.isNotEmpty && index < products.length) {
+      return products[index]['slug'] as String?;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +204,7 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                       title:     fullName,
                       services:  _getServices(bhkName),
                       productId: _getProductId(i),
+                      slug:      _getSlug(i),    // ← हे add केलं
                     ),
                   ),
                   child: Container(

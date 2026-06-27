@@ -3,7 +3,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/cart_service.dart';
 
-// ── Cart State ────────────────────────────────────────────────────────
 class CartState {
   final bool isLoading;
   final List<dynamic> cartItems;
@@ -48,7 +47,6 @@ class CartState {
   }
 }
 
-// ── Cart Notifier ─────────────────────────────────────────────────────
 class CartNotifier extends StateNotifier<CartState> {
   final CartService _cartService = CartService();
 
@@ -56,7 +54,6 @@ class CartNotifier extends StateNotifier<CartState> {
     getCart();
   }
 
-  // ── Get Cart ───────────────────────────────────────────────────────
   Future<void> getCart() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -75,17 +72,15 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Add to Cart ────────────────────────────────────────────────────
+  // ✅ FIX: quantity param काढला — service मध्ये नाही
   Future<bool> addToCart({
     required int productId,
-    required int quantity,
     Map<String, dynamic>? extras,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _cartService.addToCart(
         productId: productId,
-        quantity:  quantity,
         extras:    extras,
       );
       await getCart();
@@ -96,26 +91,18 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Add Flat to Cart ───────────────────────────────────────────────
+  // ✅ FIX: params आता service शी match होतात
   Future<bool> addFlatToCart({
-    required int productId,
-    required String bhkType,
-    required String flatType,
+    required int mainProductId,
     required double sqft,
-    bool cleanWalls  = false,
-    bool cleanPaint  = false,
-    bool removeCover = false,
+    required List<Map<String, dynamic>> addons,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _cartService.addFlatToCart(
-        productId:   productId,
-        bhkType:     bhkType,
-        flatType:    flatType,
-        sqft:        sqft,
-        cleanWalls:  cleanWalls,
-        cleanPaint:  cleanPaint,
-        removeCover: removeCover,
+        mainProductId: mainProductId,
+        sqft:          sqft,
+        addons:        addons,
       );
       await getCart();
       return true;
@@ -125,16 +112,16 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Update Cart Item ───────────────────────────────────────────────
+  // ✅ FIX: cartItemId → rowId, quantity → qty
   Future<bool> updateCartItem({
-    required int cartItemId,
-    required int quantity,
+    required String rowId,
+    required int qty,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _cartService.updateCartItem(
-        cartItemId: cartItemId,
-        quantity:   quantity,
+        rowId: rowId,
+        qty:   qty,
       );
       await getCart();
       return true;
@@ -144,11 +131,11 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Remove Cart Item ───────────────────────────────────────────────
-  Future<bool> removeCartItem(int cartItemId) async {
+  // ✅ OK — rowId string आहे, service शी match
+  Future<bool> removeCartItem(String rowId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _cartService.removeCartItem(cartItemId);
+      await _cartService.removeCartItem(rowId);
       await getCart();
       return true;
     } catch (e) {
@@ -157,20 +144,11 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Clear Cart ─────────────────────────────────────────────────────
   Future<bool> clearCart() async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _cartService.clearCart();
-      state = const CartState();
-      return true;
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      return false;
-    }
+    state = const CartState();
+    return true;
   }
 
-  // ── Apply Coupon ───────────────────────────────────────────────────
   Future<bool> applyCoupon(String couponCode) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -183,7 +161,6 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Remove Coupon ──────────────────────────────────────────────────
   Future<bool> removeCoupon() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -196,18 +173,15 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // ── Clear Error ────────────────────────────────────────────────────
   void clearError() {
     state = state.copyWith(error: null);
   }
 }
 
-// ── Provider ──────────────────────────────────────────────────────────
 final cartProvider = StateNotifierProvider<CartNotifier, CartState>(
       (ref) => CartNotifier(),
 );
 
-// ── Cart Count Provider ───────────────────────────────────────────────
 final cartCountProvider = Provider<int>((ref) {
   return ref.watch(cartProvider).cartCount;
 });
