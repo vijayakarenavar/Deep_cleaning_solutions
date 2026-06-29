@@ -51,21 +51,7 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
       return;
     }
 
-    final authState = ref.read(authProvider);
-    if (!authState.isLoggedIn) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Please login to add items to cart.'),
-            backgroundColor: AppColors.secondary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-        Future.microtask(() => context.go('/login'));
-      }
-      return;
-    }
+    // ✅ Login check काढला — guest पण cart मध्ये add करू शकतो
 
     if (widget.productId == null) {
       if (mounted) {
@@ -86,9 +72,9 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
       ];
 
       final bool success = await ref.read(cartProvider.notifier).addFlatToCart(
-        mainProductId: widget.productId!,   // ✅ productId → mainProductId
-        sqft: sqft,                          // ✅ direct sqft
-        addons: addons,                      // ✅ addons list
+        mainProductId: widget.productId!,
+        sqft:          sqft,
+        addons:        addons,
       );
 
       if (mounted) {

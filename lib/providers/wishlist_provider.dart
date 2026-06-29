@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/wishlist_service.dart';
+import 'auth_provider.dart';
 
 class WishlistState {
   final bool isLoading;
@@ -33,15 +34,22 @@ class WishlistState {
 
 class WishlistNotifier extends StateNotifier<WishlistState> {
   final WishlistService _wishlistService = WishlistService();
+  final Ref _ref;
 
-  WishlistNotifier() : super(const WishlistState());
+  WishlistNotifier(this._ref) : super(const WishlistState());
+
+  // ✅ Login check helper
+  bool _isLoggedIn() => _ref.read(authProvider).isLoggedIn;
 
   // ── Get Wishlist ───────────────────────────────────────────────────
   Future<void> getWishlist() async {
+    // ✅ Guest असेल तर wishlist fetch नको
+    if (!_isLoggedIn()) return;
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _wishlistService.getWishlist();
-      final items = response['items'] ?? [];  // ✅ fix
+      final items = response['items'] ?? [];
       state = state.copyWith(
         isLoading:     false,
         wishlistItems: items,
@@ -53,28 +61,32 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
   }
 
   // ── Add to Wishlist ────────────────────────────────────────────────
-  Future<bool> addToWishlist(int productId) async {
+  // ✅ Guest असेल तर 'login_required' return करा
+  Future<String> addToWishlist(int productId) async {
+    if (!_isLoggedIn()) return 'login_required';
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _wishlistService.addToWishlist(productId);
       await getWishlist();
-      return true;
+      return 'success';
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
-      return false;
+      return 'error';
     }
   }
 
   // ── Remove from Wishlist ───────────────────────────────────────────
   Future<bool> removeFromWishlist(int productId) async {
+    if (!_isLoggedIn()) return false;
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       await _wishlistService.removeFromWishlist(productId);
       await getWishlist();
       return true;
     } catch (e) {
-      // ⚠️ Backend bug — DELETE /wishlist 404 येतो
-      // Local state मधून remove करतो
+      // Backend bug — local state मधून remove
       final updated = state.wishlistItems
           .where((item) => item['id'] != productId)
           .toList();
@@ -89,18 +101,21 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
   }
 
   // ── Toggle Wishlist ────────────────────────────────────────────────
-  Future<bool> toggleWishlist(int productId) async {
+  // ✅ 'login_required', 'success', 'error' return करतो
+  Future<String> toggleWishlist(int productId) async {
+    if (!_isLoggedIn()) return 'login_required';
+
     final inWishlist = state.wishlistItems
-        .any((item) => item['id'] == productId);  // ✅ fix
+        .any((item) => item['id'] == productId);
     if (inWishlist) {
-      return await removeFromWishlist(productId);
+      final success = await removeFromWishlist(productId);
+      return success ? 'removed' : 'error';
     } else {
       return await addToWishlist(productId);
     }
   }
 
   // ── Clear Wishlist ─────────────────────────────────────────────────
-  // ✅ API नाही — local state reset
   Future<bool> clearWishlist() async {
     state = const WishlistState();
     return true;
@@ -108,8 +123,9 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
 
   // ── Check Wishlist ─────────────────────────────────────────────────
   bool isInWishlist(int productId) {
+    if (!_isLoggedIn()) return false;
     return state.wishlistItems
-        .any((item) => item['id'] == productId);  // ✅ fix
+        .any((item) => item['id'] == productId);
   }
 
   void clearError() {
@@ -118,7 +134,7 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
 }
 
 final wishlistProvider = StateNotifierProvider<WishlistNotifier, WishlistState>(
-      (ref) => WishlistNotifier(),
+      (ref) => WishlistNotifier(ref),
 );
 
 final wishlistCountProvider = Provider<int>((ref) {

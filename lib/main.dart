@@ -13,6 +13,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/screens/home_screen.dart';
 import 'package:dcs_app/services/api_client.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
+import 'package:dcs_app/screens/wishlist_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,16 +65,20 @@ String? _authGuard(BuildContext context, GoRouterState state) {
   final container = ProviderScope.containerOf(context);
   final authState = container.read(authProvider);
 
-  // अजून initialized नाही — redirect नको
   if (!authState.isInitialized) return null;
 
   final loggedIn  = authState.isLoggedIn;
   final location  = state.uri.toString();
   final loggingIn = location == '/login' || location == '/register';
 
-  if (!loggedIn && !loggingIn) return '/login';
-  if (loggedIn && loggingIn)   return '/';
+  // ✅ Logged in user login page वर गेला तर home ला
+  if (loggedIn && loggingIn) return '/';
 
+  // ✅ या pages साठी login required
+  if (!loggedIn && location == '/checkout') return '/login';
+  if (!loggedIn && location == '/orders')   return '/login';
+
+  // ✅ Guest ला home/cart freely access करू द्या
   return null;
 }
 
@@ -100,6 +105,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/checkout',
       builder: (context, state) => const CheckoutScreen(),
+    ),
+    GoRoute(
+      path: '/wishlist',
+      builder: (context, state) => const WishlistScreen(),
     ),
   ],
 );

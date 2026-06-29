@@ -1,3 +1,5 @@
+// lib/screens/bhk_list_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dcs_app/utils/app_colors.dart';
@@ -5,6 +7,8 @@ import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/product_provider.dart';
+import 'package:dcs_app/providers/wishlist_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'service_detail_sheet.dart';
 
 class BHKListScreen extends ConsumerStatefulWidget {
@@ -105,6 +109,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
       } else {
         ref.read(productProvider.notifier).getUnfurnishedFlats();
       }
+      // ✅ Wishlist pan load kara jenyamule heart icon correct disel
+      ref.read(wishlistProvider.notifier).getWishlist();
     });
   }
 
@@ -116,15 +122,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
   }
 
   String _getImageUrl(int index) {
-    final productState = ref.read(productProvider);
-    final products = widget.type == 'Furnished'
-        ? productState.furnishedFlats
-        : productState.unfurnishedFlats;
-
-    if (products.isNotEmpty && index < products.length) {
-      return (products[index]['image'] ?? products[index]['thumbnail'] ?? '').toString();
-    }
-
     if (widget.type == 'Furnished') {
       return AppImages.furnishedBHK[index % AppImages.furnishedBHK.length];
     }
@@ -142,7 +139,7 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     }
     return null;
   }
-  // _getProductId च्या खाली हा नवीन method add करा:
+
   String? _getSlug(int index) {
     final productState = ref.read(productProvider);
     final products = widget.type == 'Furnished'
@@ -155,9 +152,58 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     return null;
   }
 
+  // ✅ Heart icon tap handler
+  Future<void> _onWishlistTap(int index) async {
+    final productId = _getProductId(index);
+    if (productId == null) return;
+
+    final result = await ref
+        .read(wishlistProvider.notifier)
+        .toggleWishlist(productId);
+
+    if (!mounted) return;
+
+    if (result == 'login_required') {
+      // Login nahi — login page var pathva
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please login to add to wishlist'),
+          backgroundColor: AppColors.secondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          action: SnackBarAction(
+            label: 'Login',
+            textColor: Colors.white,
+            onPressed: () => context.push('/login'),
+          ),
+        ),
+      );
+    } else if (result == 'success') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Added to wishlist!'),
+          backgroundColor: AppColors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } else if (result == 'removed') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Removed from wishlist'),
+          backgroundColor: AppColors.textMuted,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productState = ref.watch(productProvider);
+    // ✅ wishlistProvider watch kara jenyamule heart icon reactive hoil
+    ref.watch(wishlistProvider);
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -194,6 +240,12 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
               itemBuilder: (_, i) {
                 final bhkName  = _bhkList[i]['name'] as String;
                 final fullName = '$bhkName ${widget.type} Homes';
+                final productId = _getProductId(i);
+
+                // ✅ isInWishlist check — productId null asel tar false
+                final inWishlist = productId != null
+                    ? ref.watch(isInWishlistProvider(productId))
+                    : false;
 
                 return GestureDetector(
                   onTap: () => showModalBottomSheet(
@@ -203,8 +255,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                     builder: (_) => ServiceDetailSheet(
                       title:     fullName,
                       services:  _getServices(bhkName),
-                      productId: _getProductId(i),
-                      slug:      _getSlug(i),    // ← हे add केलं
+                      productId: productId,
+                      slug:      _getSlug(i),
                     ),
                   ),
                   child: Container(
@@ -221,6 +273,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                               fit: BoxFit.cover,
                               borderRadius: BorderRadius.circular(12),
                             ),
+
+                            // ✅ NEW badge — top left
                             Positioned(
                               top: 10, left: 10,
                               child: Container(
@@ -235,8 +289,39 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                                 ),
                               ),
                             ),
+
+                            // ✅ Heart icon — top right
+                            Positioned(
+                              top: 8, right: 8,
+                              child: GestureDetector(
+                                onTap: () => _onWishlistTap(i),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.12),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    inWishlist
+                                        ? Icons.favorite        // ✅ filled — red
+                                        : Icons.favorite_border, // ✅ outline — white/grey
+                                    color: inWishlist
+                                        ? Colors.red
+                                        : AppColors.textMuted,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
+
                         const SizedBox(height: 8),
                         Text(
                           fullName,
