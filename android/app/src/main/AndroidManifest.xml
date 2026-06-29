@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ हे add कर — internet permission -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -29,10 +28,20 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
     <queries>
+        <!-- Existing -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- ✅ WhatsApp -->
+        <package android:name="com.whatsapp" />
+        <!-- ✅ HTTPS links -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
+
 </manifest>

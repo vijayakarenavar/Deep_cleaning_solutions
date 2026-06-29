@@ -133,17 +133,6 @@ class SRGSliverAppBar extends ConsumerWidget {
               ),
             ),
 
-            // ✅ Left — Menu
-            Positioned(
-              left: 0,
-              child: Builder(
-                builder: (c) => IconButton(
-                  icon: const Icon(Icons.menu, color: AppColors.black),
-                  onPressed: () => Scaffold.of(c).openDrawer(),
-                ),
-              ),
-            ),
-
             // ✅ Right — Search + Wishlist + Cart
             Positioned(
               right: 0,
@@ -187,7 +176,7 @@ class SRGSliverAppBar extends ConsumerWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.black),
-                    onPressed: () {},
+                    onPressed: () => context.push('/cart'),
                   ),
                 ],
               ),

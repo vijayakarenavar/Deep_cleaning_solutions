@@ -109,10 +109,11 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
       } else {
         ref.read(productProvider.notifier).getUnfurnishedFlats();
       }
-      // ✅ Wishlist pan load kara jenyamule heart icon correct disel
       ref.read(wishlistProvider.notifier).getWishlist();
     });
   }
+
+
 
   List<Map<String, String>> _getServices(String bhk) {
     if (widget.type == 'Furnished') {
@@ -128,35 +129,22 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     return AppImages.unfurnishedBHK[index % AppImages.unfurnishedBHK.length];
   }
 
-  int? _getProductId(int index) {
-    final productState = ref.read(productProvider);
-    final products = widget.type == 'Furnished'
-        ? productState.furnishedFlats
-        : productState.unfurnishedFlats;
-
+  // ✅ FIXED: ref.read cha naahi, direct products list pass karo
+  int? _getProductIdFromList(List<dynamic> products, int index) {
     if (products.isNotEmpty && index < products.length) {
       return products[index]['id'] as int?;
     }
     return null;
   }
 
-  String? _getSlug(int index) {
-    final productState = ref.read(productProvider);
-    final products = widget.type == 'Furnished'
-        ? productState.furnishedFlats
-        : productState.unfurnishedFlats;
-
+  String? _getSlugFromList(List<dynamic> products, int index) {
     if (products.isNotEmpty && index < products.length) {
       return products[index]['slug'] as String?;
     }
     return null;
   }
 
-  // ✅ Heart icon tap handler
-  Future<void> _onWishlistTap(int index) async {
-    final productId = _getProductId(index);
-    if (productId == null) return;
-
+  Future<void> _onWishlistTap(int productId) async {
     final result = await ref
         .read(wishlistProvider.notifier)
         .toggleWishlist(productId);
@@ -164,7 +152,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     if (!mounted) return;
 
     if (result == 'login_required') {
-      // Login nahi — login page var pathva
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please login to add to wishlist'),
@@ -201,9 +188,14 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ FIXED: ref.watch vaparla — dono sathi reactive
     final productState = ref.watch(productProvider);
-    // ✅ wishlistProvider watch kara jenyamule heart icon reactive hoil
     ref.watch(wishlistProvider);
+
+    // ✅ FIXED: build madhe products kadhla — reactive ahe
+    final products = widget.type == 'Furnished'
+        ? productState.furnishedFlats
+        : productState.unfurnishedFlats;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -240,9 +232,12 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
               itemBuilder: (_, i) {
                 final bhkName  = _bhkList[i]['name'] as String;
                 final fullName = '$bhkName ${widget.type} Homes';
-                final productId = _getProductId(i);
 
-                // ✅ isInWishlist check — productId null asel tar false
+                // ✅ FIXED: products directly vaparle — ref.watch(productProvider) already build madhe ahe
+                final productId = _getProductIdFromList(products, i);
+                final slug      = _getSlugFromList(products, i);
+
+                // ✅ FIXED: productId correct milto ata — heart reactive hoil
                 final inWishlist = productId != null
                     ? ref.watch(isInWishlistProvider(productId))
                     : false;
@@ -256,7 +251,7 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                       title:     fullName,
                       services:  _getServices(bhkName),
                       productId: productId,
-                      slug:      _getSlug(i),
+                      slug:      slug,
                     ),
                   ),
                   child: Container(
@@ -274,7 +269,7 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
 
-                            // ✅ NEW badge — top left
+                            // NEW badge — top left
                             Positioned(
                               top: 10, left: 10,
                               child: Container(
@@ -294,7 +289,9 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                             Positioned(
                               top: 8, right: 8,
                               child: GestureDetector(
-                                onTap: () => _onWishlistTap(i),
+                                onTap: () {
+                                  if (productId != null) _onWishlistTap(productId);
+                                },
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
@@ -309,8 +306,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                                   ),
                                   child: Icon(
                                     inWishlist
-                                        ? Icons.favorite        // ✅ filled — red
-                                        : Icons.favorite_border, // ✅ outline — white/grey
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
                                     color: inWishlist
                                         ? Colors.red
                                         : AppColors.textMuted,

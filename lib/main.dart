@@ -1,3 +1,4 @@
+import 'package:dcs_app/screens/contact_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -109,6 +110,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/wishlist',
       builder: (context, state) => const WishlistScreen(),
+    ),
+    GoRoute(
+      path: '/contact',
+      builder: (context, state) => const ContactScreen(),
     ),
   ],
 );

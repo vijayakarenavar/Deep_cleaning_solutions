@@ -19,6 +19,7 @@ dependencies:
   shared_preferences: ^2.2.3
   flutter_dotenv: ^5.1.0
   uuid: ^4.3.3              # ✅ नवीन — Guest ID UUID साठी
+  font_awesome_flutter: ^10.7.0
 
 dev_dependencies:
   flutter_test:

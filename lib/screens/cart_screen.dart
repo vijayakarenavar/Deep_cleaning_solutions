@@ -29,6 +29,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => context.go('/'), // ✅ Navigator.pop naahi — home var ja
+        ),
         title: const Text('My Cart', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),

@@ -31,6 +31,10 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => context.go('/'),
+        ),
         title: const Text('My Wishlist', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),

@@ -17,8 +17,9 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: dotenv.env['API_BASE_URL'] ?? '',
-        connectTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '30000')),
-        receiveTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '30000')),
+        connectTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')),
+        receiveTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')),
+        sendTimeout:    Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')), // ✅ he add kar
         headers: {
           'Content-Type': 'application/json',
           'Accept':       'application/json',
@@ -49,8 +50,24 @@ class ApiClient {
         },
 
         onError: (error, handler) async {
+          // ✅ Timeout → 1 retry
+          if (error.type == DioExceptionType.connectionTimeout ||
+              error.type == DioExceptionType.receiveTimeout    ||
+              error.type == DioExceptionType.sendTimeout) {
+            try {
+              final response = await _dio.request(
+                error.requestOptions.path,
+                options: Options(method: error.requestOptions.method),
+                data:            error.requestOptions.data,
+                queryParameters: error.requestOptions.queryParameters,
+              );
+              return handler.resolve(response);
+            } catch (_) {
+              // Retry pan fail — original error jaoo de
+            }
+          }
+
           if (error.response?.statusCode == 401) {
-            // ✅ Token invalid — clear + login redirect
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('auth_token');
             onUnauthorized?.call();

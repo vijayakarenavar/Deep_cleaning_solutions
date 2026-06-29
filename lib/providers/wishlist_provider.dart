@@ -38,14 +38,11 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
 
   WishlistNotifier(this._ref) : super(const WishlistState());
 
-  // ✅ Login check helper
   bool _isLoggedIn() => _ref.read(authProvider).isLoggedIn;
 
   // ── Get Wishlist ───────────────────────────────────────────────────
   Future<void> getWishlist() async {
-    // ✅ Guest असेल तर wishlist fetch नको
     if (!_isLoggedIn()) return;
-
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _wishlistService.getWishlist();
@@ -61,7 +58,6 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
   }
 
   // ── Add to Wishlist ────────────────────────────────────────────────
-  // ✅ Guest असेल तर 'login_required' return करा
   Future<String> addToWishlist(int productId) async {
     if (!_isLoggedIn()) return 'login_required';
 
@@ -86,9 +82,8 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
       await getWishlist();
       return true;
     } catch (e) {
-      // Backend bug — local state मधून remove
       final updated = state.wishlistItems
-          .where((item) => item['id'] != productId)
+          .where((item) => (item['id'] as int?) != productId)
           .toList();
       state = state.copyWith(
         isLoading:     false,
@@ -101,12 +96,11 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
   }
 
   // ── Toggle Wishlist ────────────────────────────────────────────────
-  // ✅ 'login_required', 'success', 'error' return करतो
   Future<String> toggleWishlist(int productId) async {
     if (!_isLoggedIn()) return 'login_required';
 
     final inWishlist = state.wishlistItems
-        .any((item) => item['id'] == productId);
+        .any((item) => (item['id'] as int?) == productId);
     if (inWishlist) {
       final success = await removeFromWishlist(productId);
       return success ? 'removed' : 'error';
@@ -125,7 +119,7 @@ class WishlistNotifier extends StateNotifier<WishlistState> {
   bool isInWishlist(int productId) {
     if (!_isLoggedIn()) return false;
     return state.wishlistItems
-        .any((item) => item['id'] == productId);
+        .any((item) => (item['id'] as int?) == productId);
   }
 
   void clearError() {
@@ -141,6 +135,8 @@ final wishlistCountProvider = Provider<int>((ref) {
   return ref.watch(wishlistProvider).wishlistCount;
 });
 
+// ✅ FIXED: state var directly depend ahe — real-time update hoil
 final isInWishlistProvider = Provider.family<bool, int>((ref, productId) {
-  return ref.watch(wishlistProvider.notifier).isInWishlist(productId);
+  final wishlistItems = ref.watch(wishlistProvider).wishlistItems;
+  return wishlistItems.any((item) => (item['id'] as int?) == productId);
 });

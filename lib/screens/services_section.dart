@@ -8,7 +8,6 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
 
-
 class ServicesSection extends StatelessWidget {
   final List<dynamic> categories;
 
@@ -17,7 +16,6 @@ class ServicesSection extends StatelessWidget {
     this.categories = const [],
   });
 
-  // ── Static fallback ───────────────────────────────────────────────
   static const List<Map<String, dynamic>> _staticServices = [
     {'name': 'Flats',       'image': AppImages.flat,       'isNew': false},
     {'name': 'Bungalows',   'image': AppImages.bungalow,   'isNew': false},
@@ -65,24 +63,27 @@ class ServiceCard extends StatelessWidget {
   final Map<String, dynamic> data;
   const ServiceCard({super.key, required this.data});
 
+  void _navigateMain(BuildContext context) {
+    final name = data['name'] as String;
+    if (name == 'Flats') {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const FlatCategoryScreen(),
+      ));
+    } else {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => EnquiryFormScreen(serviceName: name),
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final w    = R.w(context) - 32;
     final imgH = w * 0.6;
+    final name = data['name'] as String;
 
     return GestureDetector(
-      onTap: () {
-        final name = data['name'] as String;
-        if (name == 'Flats') {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => const FlatCategoryScreen(),
-          ));
-        } else {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => EnquiryFormScreen(serviceName: name),
-          ));
-        }
-      },
+      onTap: () => _navigateMain(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -94,13 +95,14 @@ class ServiceCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Network image
+                  // Image
                   AppNetworkImage(
                     url: data['image'] as String,
                     width: w,
                     height: imgH,
                     fit: BoxFit.cover,
                   ),
+
                   // Dark gradient overlay
                   Positioned(
                     bottom: 0, left: 0, right: 0,
@@ -115,18 +117,38 @@ class ServiceCard extends StatelessWidget {
                       ),
                     ),
                   ),
-// Overlay buttons
-                    Positioned(
-                      bottom: 12, left: 0, right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _OverlayBtn(icon: Icons.open_in_full),
-                          const SizedBox(width: 10),
-                          _OverlayBtn(icon: Icons.shopping_bag_outlined, onTap: () => context.go('/cart')),
-                        ],
-                      ),
+
+                  // ✅ Overlay buttons
+                  Positioned(
+                    bottom: 12, left: 0, right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // ✅ Open icon — card tap same
+                        _OverlayBtn(
+                          icon: Icons.open_in_full,
+                          onTap: () => _navigateMain(context),
+                        ),
+                        const SizedBox(width: 10),
+                        // ✅ Cart icon — Flats → FlatCategoryScreen, Others → EnquiryFormScreen
+                        _OverlayBtn(
+                          icon: Icons.shopping_bag_outlined,
+                          onTap: () {
+                            if (name == 'Flats') {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => const FlatCategoryScreen(),
+                              ));
+                            } else {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => EnquiryFormScreen(serviceName: name),
+                              ));
+                            }
+                          },
+                        ),
+                      ],
                     ),
+                  ),
+
                   // NEW badge
                   if (data['isNew'] == true)
                     Positioned(
@@ -149,7 +171,7 @@ class ServiceCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            data['name'] as String,
+            name,
             style: TextStyle(
               fontSize: R.sp(context, 16),
               fontWeight: FontWeight.w600,

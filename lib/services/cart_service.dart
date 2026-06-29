@@ -50,7 +50,6 @@ class CartService {
     return response.data;
   }
 
-  // ✅ FIX: API body → main_product_id, sqft, addons array
   Future<Map<String, dynamic>> addFlatToCart({
     required int mainProductId,
     required double sqft,
@@ -64,6 +63,10 @@ class CartService {
         'addons':          addons,
       },
     );
+    // ✅ API error message throw kar
+    if (response.data['status'] == false) {
+      throw response.data['message'] ?? 'Failed to add to cart.';
+    }
     return response.data;
   }
 

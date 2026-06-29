@@ -107,6 +107,7 @@ class CartNotifier extends StateNotifier<CartState> {
       await getCart();
       return true;
     } catch (e) {
+      print('CART ERROR: $e'); // ✅ He add kar
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
