@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dcs_app/screens/services_section.dart';
 import 'package:dcs_app/widgets/srg_app_bar.dart';
-import 'package:dcs_app/screens/watch_in_action_section.dart';
 import 'package:dcs_app/screens/why_choose_us_section.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/screens/banner_section.dart';
@@ -112,8 +111,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const WhyChooseUsSection(),
                     const SizedBox(height: 8),
                     const HowWeWorkSection(),
-                    const SizedBox(height: 8),
-                    WatchInActionSection(videos: homeState.videos),
                     const SizedBox(height: 8),
                     FAQSection(faqs: homeState.faqs),
                     const SizedBox(height: 100), // FAB साठी space

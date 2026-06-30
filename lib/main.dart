@@ -1,3 +1,6 @@
+// lib/main.dart
+
+import 'dart:async';
 import 'package:dcs_app/screens/contact_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +14,13 @@ import 'package:dcs_app/screens/cart_screen.dart';
 import 'package:dcs_app/screens/checkout_screen.dart';
 import 'package:dcs_app/screens/profile_screen.dart';
 import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/feature_flags.dart';
 import 'package:dcs_app/screens/home_screen.dart';
 import 'package:dcs_app/services/api_client.dart';
 import 'package:dcs_app/providers/auth_provider.dart';
 import 'package:dcs_app/screens/wishlist_screen.dart';
+import 'package:dcs_app/screens/orders_screen.dart';
+import 'package:dcs_app/screens/order_detail_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,11 +28,6 @@ void main() async {
   await dotenv.load(fileName: '.env');
 
   ApiClient().init();
-
-  // ✅ 401 आल्यावर token clear होऊन login ला redirect
-  ApiClient.onUnauthorized = () {
-    _router.go('/login');
-  };
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
@@ -43,8 +44,118 @@ void main() async {
   );
 }
 
-class DCSApp extends StatelessWidget {
+// ✅ StateNotifier च्या state बदलावर GoRouter ला notify करणारा helper
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
+class DCSApp extends ConsumerStatefulWidget {
   const DCSApp({super.key});
+
+  @override
+  ConsumerState<DCSApp> createState() => _DCSAppState();
+}
+
+class _DCSAppState extends ConsumerState<DCSApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ 401 आल्यावर token clear होऊन login ला redirect
+    ApiClient.onUnauthorized = () {
+      _router.go('/login');
+    };
+
+    _router = GoRouter(
+      initialLocation: '/',
+      refreshListenable: GoRouterRefreshStream(
+        ref.read(authProvider.notifier).stream,
+      ),
+      redirect: (context, state) {
+        final authState = ref.read(authProvider);
+        if (!authState.isInitialized) {
+          return null;
+        }
+
+        final loggedIn  = authState.isLoggedIn;
+        final location  = state.uri.toString();
+        final loggingIn = location == '/login' || location == '/register';
+
+        // ✅ Logged in user login page वर गेला तर home ला
+        if (loggedIn && loggingIn) {
+          return '/';
+        }
+
+        // ✅ या pages साठी login required
+        if (!loggedIn && location == '/checkout') {
+          return '/login';
+        }
+        if (!loggedIn && location == '/orders') {
+          return '/login';
+        }
+        if (!loggedIn && location.startsWith('/orders/')) {
+          return '/login';
+        }
+        if (!loggedIn && location == '/wishlist') {
+          return '/login';
+        }
+        return null;
+      },
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const MainShell(),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/register',
+          builder: (context, state) => const RegisterScreen(),
+        ),
+        GoRoute(
+          path: '/cart',
+          builder: (context, state) => const CartScreen(),
+        ),
+        GoRoute(
+          path: '/checkout',
+          builder: (context, state) => const CheckoutScreen(),
+        ),
+        GoRoute(
+          path: '/wishlist',
+          builder: (context, state) => const WishlistScreen(),
+        ),
+        GoRoute(
+          path: '/contact',
+          builder: (context, state) => const ContactScreen(),
+        ),
+        GoRoute(
+          path: '/orders',
+          builder: (context, state) => const OrdersScreen(),
+        ),
+        GoRoute(
+          path: '/orders/:id',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return OrderDetailScreen(orderId: id);
+          },
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,62 +173,6 @@ class DCSApp extends StatelessWidget {
   }
 }
 
-String? _authGuard(BuildContext context, GoRouterState state) {
-  final container = ProviderScope.containerOf(context);
-  final authState = container.read(authProvider);
-
-  if (!authState.isInitialized) return null;
-
-  final loggedIn  = authState.isLoggedIn;
-  final location  = state.uri.toString();
-  final loggingIn = location == '/login' || location == '/register';
-
-  // ✅ Logged in user login page वर गेला तर home ला
-  if (loggedIn && loggingIn) return '/';
-
-  // ✅ या pages साठी login required
-  if (!loggedIn && location == '/checkout') return '/login';
-  if (!loggedIn && location == '/orders')   return '/login';
-
-  // ✅ Guest ला home/cart freely access करू द्या
-  return null;
-}
-
-final GoRouter _router = GoRouter(
-  initialLocation: '/',
-  redirect: _authGuard,
-  routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const MainShell(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/register',
-      builder: (context, state) => const RegisterScreen(),
-    ),
-    GoRoute(
-      path: '/cart',
-      builder: (context, state) => const CartScreen(),
-    ),
-    GoRoute(
-      path: '/checkout',
-      builder: (context, state) => const CheckoutScreen(),
-    ),
-    GoRoute(
-      path: '/wishlist',
-      builder: (context, state) => const WishlistScreen(),
-    ),
-    GoRoute(
-      path: '/contact',
-      builder: (context, state) => const ContactScreen(),
-    ),
-  ],
-);
-
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
   @override
@@ -127,11 +182,13 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    BlogsScreen(),
-    ProfileScreen(),
-  ];
+  List<Widget> get _screens {
+    final screens = <Widget>[const HomeScreen()];
+    if (FeatureFlags.showBlogs)  screens.add(const BlogsScreen());
+    if (FeatureFlags.showOrders) screens.add(const OrdersScreen());
+    screens.add(const ProfileScreen());
+    return screens;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +199,47 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildBottomNav() {
+    final items = <_NavItem>[
+      _NavItem(
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home,
+        label: 'Home',
+        index: 0,
+        current: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+      ),
+    ];
+
+    int idx = 1;
+    if (FeatureFlags.showBlogs) {
+      items.add(_NavItem(
+        icon: Icons.article_outlined,
+        activeIcon: Icons.article,
+        label: 'Blogs',
+        index: idx++,
+        current: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+      ));
+    }
+    if (FeatureFlags.showOrders) {
+      items.add(_NavItem(
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        label: 'Orders',
+        index: idx++,
+        current: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+      ));
+    }
+    items.add(_NavItem(
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      label: 'Profile',
+      index: idx++,
+      current: _currentIndex,
+      onTap: (i) => setState(() => _currentIndex = i),
+    ));
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -157,13 +255,7 @@ class _MainShellState extends State<MainShell> {
       child: SafeArea(
         child: SizedBox(
           height: 60,
-          child: Row(
-            children: [
-              _NavItem(icon: Icons.home_outlined,    activeIcon: Icons.home,    label: 'Home',    index: 0, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
-              _NavItem(icon: Icons.article_outlined, activeIcon: Icons.article, label: 'Blogs',   index: 1, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
-              _NavItem(icon: Icons.person_outline,   activeIcon: Icons.person,  label: 'Profile', index: 2, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
-            ],
-          ),
+          child: Row(children: items),
         ),
       ),
     );

@@ -31,6 +31,7 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   String? _selectedTime;
   DateTime? _selectedDate;
   bool _isLoading = false;
+  bool _orderInspection = false;
 
   final EnquiryService _enquiryService = EnquiryService();
 
@@ -142,6 +143,7 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
         state:          _stateCtrl.text.trim(),
         city:           _cityCtrl.text.trim(),
         service:        _selectedService!,
+        orderInspection: _orderInspection,
         inspectionDate: _selectedDate != null ? _formatDateForApi(_selectedDate!) : null,
         inspectionTime: _selectedTime,
       );
@@ -254,6 +256,59 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
               ),
               const SizedBox(height: 14),
 
+    Container(
+    decoration: BoxDecoration(
+    color: AppColors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.border),
+    ),
+    padding: const EdgeInsets.all(14),
+    child: Column(
+    children: [
+    Row(
+    children: [
+    Checkbox(
+    value: _orderInspection,
+    onChanged: (v) => setState(() => _orderInspection = v ?? false),
+    activeColor: AppColors.primary,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+    ),
+    const Expanded(
+    child: Text(
+    'Order inspection at just Rs 200/-',
+    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
+    ),
+    ),
+    ],
+    ),
+    if (_orderInspection) ...[
+    const SizedBox(height: 8),
+    Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+    color: const Color(0xFFFFF8E1),
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: const Color(0xFFFFE082)),
+    ),
+    child: Row(
+    children: const [
+    Icon(Icons.info_outline, color: Color(0xFFFF8F00), size: 16),
+    SizedBox(width: 8),
+    Expanded(
+    child: Text(
+    'You will be redirected to PhonePe payment gateway to complete the Rs 200 payment for inspection scheduling.',
+    style: TextStyle(fontSize: 12, color: Color(0xFF5D4037)),
+    ),
+    ),
+    ],
+    ),
+    ),
+    ],
+    ],
+    ),
+    ),
+    const SizedBox(height: 10),
+
               // ── Schedule Inspection ────────────
               Container(
                 decoration: BoxDecoration(
@@ -351,7 +406,10 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Submit Enquiry', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                      : Text(
+                    _orderInspection ? 'Proceed to Payment (Rs 200)' : 'Submit Enquiry',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

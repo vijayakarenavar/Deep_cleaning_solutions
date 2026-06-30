@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
 
 // ── Auth State ────────────────────────────────────────────────────────
 class AuthState {
@@ -45,7 +46,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // ── Check Login Status ─────────────────────────────────────────────
+  // ✅ App startup वेळी 401 आला तरी silently guest mode मध्ये जा
   Future<void> _checkLoginStatus() async {
+    ApiClient.suppressUnauthorizedRedirect = true;
     try {
       final isLoggedIn = await _authService.isLoggedIn();
       if (isLoggedIn) {
@@ -55,11 +58,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } catch (e) {
       state = state.copyWith(isInitialized: true, isLoggedIn: false);
+    } finally {
+      ApiClient.suppressUnauthorizedRedirect = false;
     }
   }
-
   // ── Register ───────────────────────────────────────────────────────
-  // ✅ mobile काढला — API doc मध्ये register मध्ये mobile नाही
   Future<bool> register({
     required String name,
     required String email,
@@ -130,12 +133,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user:          response['user'],
       );
     } catch (e) {
+      // ✅ token invalid/expired — guest म्हणून continue करा, login ला force नको
       state = const AuthState(isInitialized: true, isLoggedIn: false);
     }
   }
 
   // ── Update Profile ─────────────────────────────────────────────────
-  // ✅ mobile → phone (API doc: PUT /auth/profile uses 'phone')
   Future<bool> updateProfile({
     required String name,
     required String email,

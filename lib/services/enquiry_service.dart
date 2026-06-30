@@ -17,6 +17,7 @@ class EnquiryService {
     required String service,
     String? inspectionDate,
     String? inspectionTime,
+    bool orderInspection = false,
   }) async {
     final response = await _api.post(
       '/enquiry',
@@ -29,6 +30,7 @@ class EnquiryService {
         'state':       state,
         'city':        city,
         'service':     service,
+        'order_inspection':  orderInspection ? 1 : 0,
         if (inspectionDate != null) 'inspection_date': inspectionDate,
         if (inspectionTime != null) 'inspection_time': inspectionTime,
       },

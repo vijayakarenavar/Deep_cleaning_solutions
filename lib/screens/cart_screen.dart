@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/cart_provider.dart';
+import 'package:dcs_app/widgets/app_network_image.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -31,7 +33,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.go('/'), // ✅ Navigator.pop naahi — home var ja
+          onPressed: () => context.go('/'),
         ),
         title: const Text('My Cart', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
@@ -41,36 +43,32 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           : cartItems.isEmpty
           ? _EmptyCart()
           : Column(
-              children: [
-                Expanded(
-                  child: RefreshIndicator(
-                    color: AppColors.primary,
-                    onRefresh: () => ref.read(cartProvider.notifier).getCart(),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: cartItems.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (_, i) => _CartItemCard(
-                        item: cartItems[i],
-                        onUpdate: (qty) => ref.read(cartProvider.notifier).updateCartItem(
-                          rowId: cartItems[i]['rowId']?.toString() ?? '',  // ✅ 'row_id' नाही → 'rowId'
-                          qty: qty,                                         // ✅ 'quantity' नाही → 'qty'
-                        ),
-                        onRemove: () => ref.read(cartProvider.notifier).removeCartItem(
-                          cartItems[i]['rowId']?.toString() ?? '',          // ✅ 'row_id' नाही → 'rowId'
-                        ),
-                      ),
-                    ),
+        children: [
+          Expanded(
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () => ref.read(cartProvider.notifier).getCart(),
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: cartItems.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => _CartItemCard(
+                  item: cartItems[i],
+                  onRemove: () => ref.read(cartProvider.notifier).removeCartItem(
+                    cartItems[i]['rowId']?.toString() ?? '',
                   ),
                 ),
-                _CartSummary(
-                  totalAmount: cartState.totalAmount,
-                  discountAmount: cartState.discountAmount,
-                  finalAmount: cartState.finalAmount,
-                  onCheckout: () => context.go('/checkout'),
-                ),
-              ],
+              ),
             ),
+          ),
+          _CartSummary(
+            totalAmount: cartState.totalAmount,
+            discountAmount: cartState.discountAmount,
+            finalAmount: cartState.finalAmount,
+            onCheckout: () => context.go('/checkout'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -117,22 +115,60 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
+// ✅ service_name वरून BHK image काढणारा helper
+String _getImageForService(String serviceName) {
+  final name = serviceName.toLowerCase();
+
+  // BHK index ठरव
+  int bhkIndex = 0;
+  if (name.contains('2 bhk') || name.contains('2bhk')) bhkIndex = 1;
+  else if (name.contains('3 bhk') || name.contains('3bhk')) bhkIndex = 2;
+  else if (name.contains('4 bhk') || name.contains('4bhk')) bhkIndex = 3;
+  else if (name.contains('5 bhk') || name.contains('5bhk')) bhkIndex = 4;
+
+  // Furnished / Unfurnished check
+  if (name.contains('unfurnished')) {
+    return AppImages.unfurnishedBHK[bhkIndex % AppImages.unfurnishedBHK.length];
+  } else if (name.contains('furnished')) {
+    return AppImages.furnishedBHK[bhkIndex % AppImages.furnishedBHK.length];
+  }
+
+  // Other services → category image
+  if (name.contains('bungalow'))   return AppImages.bungalow;
+  if (name.contains('office'))     return AppImages.office;
+  if (name.contains('society'))    return AppImages.society;
+  if (name.contains('restaurant')) return AppImages.restaurant;
+  if (name.contains('shop'))       return AppImages.shop;
+  if (name.contains('school'))     return AppImages.school;
+  if (name.contains('car'))        return AppImages.carWash;
+  if (name.contains('kitchen'))    return AppImages.kitchen[0];
+  if (name.contains('bathroom') || name.contains('bath')) return AppImages.bathroom[0];
+  if (name.contains('bedroom') || name.contains('bed'))   return AppImages.bedroom[0];
+  if (name.contains('hall'))       return AppImages.hall[0];
+  if (name.contains('floor'))      return AppImages.floor[0];
+  if (name.contains('window'))     return AppImages.window[0];
+
+  // Default fallback
+  return AppImages.flat;
+}
+
 class _CartItemCard extends StatelessWidget {
   final Map<String, dynamic> item;
-  final Function(int) onUpdate;
   final VoidCallback onRemove;
 
   const _CartItemCard({
     required this.item,
-    required this.onUpdate,
     required this.onRemove,
   });
 
   @override
   Widget build(BuildContext context) {
-    final int quantity = item['quantity'] ?? 1;
-    final double price = (item['price'] ?? 0.0).toDouble();
+    final int quantity    = item['quantity'] ?? 1;
+    final double price    = (item['price'] ?? 0.0).toDouble();
     final String serviceName = item['service_name'] ?? item['name'] ?? 'Service';
+
+    // ✅ service_name वरून local image URL मिळव
+    final String imageUrl = _getImageForService(serviceName);
 
     return Container(
       decoration: BoxDecoration(
@@ -146,16 +182,20 @@ class _CartItemCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(8),
+            // ✅ Service Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: AppNetworkImage(
+                url: imageUrl,
+                width: 70,
+                height: 70,
+                fit: BoxFit.cover,
               ),
-              child: const Icon(Icons.cleaning_services, color: AppColors.primary, size: 32),
             ),
+
             const SizedBox(width: 12),
+
+            // ✅ Name + Price + Qty
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +207,7 @@ class _CartItemCard extends StatelessWidget {
                       fontSize: 14,
                       color: AppColors.black,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
@@ -179,35 +219,24 @@ class _CartItemCard extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Qty: $quantity',
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () {
-                    if (quantity > 1) {
-                      onUpdate(quantity - 1);
-                    }
-                  },
-                  icon: const Icon(Icons.remove, size: 18),
-                  color: AppColors.primary,
-                ),
-                Text(
-                  '$quantity',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                IconButton(
-                  onPressed: () => onUpdate(quantity + 1),
-                  icon: const Icon(Icons.add, size: 18),
-                  color: AppColors.primary,
-                ),
-                IconButton(
-                  onPressed: onRemove,
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  color: AppColors.secondary,
-                ),
-              ],
+
+            // ✅ Delete Button only
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.delete_outline, size: 22),
+              color: AppColors.secondary,
             ),
           ],
         ),
@@ -237,7 +266,11 @@ class _CartSummary extends StatelessWidget {
         color: AppColors.white,
         border: const Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: Column(
@@ -248,7 +281,10 @@ class _CartSummary extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Subtotal', style: TextStyle(color: AppColors.textMuted)),
-                Text('₹${totalAmount.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.black)),
+                Text(
+                  '₹${totalAmount.toStringAsFixed(0)}',
+                  style: const TextStyle(color: AppColors.black),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -256,7 +292,10 @@ class _CartSummary extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Discount', style: TextStyle(color: AppColors.green)),
-                Text('-₹${discountAmount.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.green)),
+                Text(
+                  '-₹${discountAmount.toStringAsFixed(0)}',
+                  style: const TextStyle(color: AppColors.green),
+                ),
               ],
             ),
             const Divider(height: 16),
@@ -264,8 +303,18 @@ class _CartSummary extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              Text('₹${finalAmount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.primary)),
+              const Text(
+                'Total',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              Text(
+                '₹${finalAmount.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: AppColors.primary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -279,7 +328,10 @@ class _CartSummary extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('Proceed to Checkout', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: const Text(
+                'Proceed to Checkout',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ],

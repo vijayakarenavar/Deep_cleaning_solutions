@@ -13,13 +13,16 @@ class ApiClient {
   // ✅ 401 वर callback — main.dart मधून set करा
   static void Function()? onUnauthorized;
 
+  // ✅ नवीन — startup check वेळी 401 redirect बंद ठेवायला
+  static bool suppressUnauthorizedRedirect = false;
+
   void init() {
     _dio = Dio(
       BaseOptions(
         baseUrl: dotenv.env['API_BASE_URL'] ?? '',
         connectTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')),
         receiveTimeout: Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')),
-        sendTimeout:    Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')), // ✅ he add kar
+        sendTimeout:    Duration(milliseconds: int.parse(dotenv.env['API_TIMEOUT'] ?? '60000')),
         headers: {
           'Content-Type': 'application/json',
           'Accept':       'application/json',
@@ -34,10 +37,8 @@ class ApiClient {
           final token = prefs.getString('auth_token');
 
           if (token != null) {
-            // ✅ Logged in — Bearer token
             options.headers['Authorization'] = 'Bearer $token';
           } else {
-            // ✅ Guest — proper UUID v4
             final guestId = prefs.getString('guest_id')
                 ?? await _createGuestId(prefs);
             options.headers['X-Guest-Id'] = guestId;
@@ -63,14 +64,18 @@ class ApiClient {
               );
               return handler.resolve(response);
             } catch (_) {
-              // Retry pan fail — original error jaoo de
+              // Retry पण fail — original error जाऊ दे
             }
           }
 
           if (error.response?.statusCode == 401) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('auth_token');
-            onUnauthorized?.call();
+
+            // ✅ Startup check वेळी silently fail — login ला force नको
+            if (!suppressUnauthorizedRedirect) {
+              onUnauthorized?.call();
+            }
           }
           return handler.next(error);
         },
@@ -78,7 +83,6 @@ class ApiClient {
     );
   }
 
-  // ✅ Proper UUID v4
   Future<String> _createGuestId(SharedPreferences prefs) async {
     final id = const Uuid().v4();
     await prefs.setString('guest_id', id);
