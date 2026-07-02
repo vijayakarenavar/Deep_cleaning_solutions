@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 
 /// Special offer popup — shows a first-order discount coupon.
@@ -238,10 +239,12 @@ class SpecialOfferDialog extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.of(context).maybePop();
+                      // ✅ NEW: navigate to the login page
+                      context.go('/login');
                       onShopNow?.call();
                     },
                     icon: const Icon(Icons.shopping_cart, size: 18, color: Colors.black87),
-                    label: const Text('Shop Now', style: TextStyle(fontWeight: FontWeight.w700)),
+                    label: const Text('Login & Shop', style: TextStyle(fontWeight: FontWeight.w700)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFFD93D),
                       foregroundColor: Colors.black87,

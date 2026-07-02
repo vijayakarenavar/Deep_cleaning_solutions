@@ -35,6 +35,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        // ✅ NEW: back button
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+        ),
         title: const Text('My Orders', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
