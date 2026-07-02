@@ -38,7 +38,6 @@ class OrderService {
     return response.data;
   }
 
-  // ✅ FIX: removed extra 'service_type' field — API ला फक्त 'date' लागतो
   Future<Map<String, dynamic>> getTimeSlots({
     required String date,
   }) async {
@@ -51,7 +50,6 @@ class OrderService {
     return response.data;
   }
 
-  // ✅ FIX: API ला 'country_id' (int) लागतो
   Future<Map<String, dynamic>> checkoutSummary({
     required int countryId,
   }) async {
@@ -64,7 +62,28 @@ class OrderService {
     return response.data;
   }
 
-  // ✅ FIX: processOrder — complete body with all required fields
+  // ✅ POST /checkout/apply-coupon
+  Future<Map<String, dynamic>> applyCoupon({required String code}) async {
+    final response = await _api.post(
+      '/checkout/apply-coupon',
+      data: {
+        'code': code,
+      },
+    );
+    return response.data;
+  }
+
+  // ✅ POST /checkout/remove-coupon
+  Future<Map<String, dynamic>> removeCoupon() async {
+    final response = await _api.post(
+      '/checkout/remove-coupon',
+      data: {},
+    );
+    return response.data;
+  }
+
+  // ── Process Order (Full Payment) ───────────────────────────────────
+  // ✅ orderNotes added (optional)
   Future<Map<String, dynamic>> processOrder({
     required String firstName,
     required String lastName,
@@ -77,6 +96,7 @@ class OrderService {
     required String mobile,
     required String bookingDate,
     required String bookingTime,
+    String? orderNotes,
   }) async {
     final response = await _api.post(
       '/checkout/process',
@@ -92,12 +112,14 @@ class OrderService {
         'mobile':       mobile,
         'booking_date': bookingDate,
         'booking_time': bookingTime,
+        if (orderNotes != null && orderNotes.isNotEmpty) 'order_notes': orderNotes,
       },
     );
     return response.data;
   }
 
-  // ✅ FIX: processAdvanceOrder — same complete body
+  // ── Process Advance Order (Advance Payment) ────────────────────────
+  // ✅ orderNotes added (optional)
   Future<Map<String, dynamic>> processAdvanceOrder({
     required String firstName,
     required String lastName,
@@ -110,6 +132,7 @@ class OrderService {
     required String mobile,
     required String bookingDate,
     required String bookingTime,
+    String? orderNotes,
   }) async {
     final response = await _api.post(
       '/checkout/process-advance',
@@ -125,6 +148,7 @@ class OrderService {
         'mobile':       mobile,
         'booking_date': bookingDate,
         'booking_time': bookingTime,
+        if (orderNotes != null && orderNotes.isNotEmpty) 'order_notes': orderNotes,
       },
     );
     return response.data;

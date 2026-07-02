@@ -44,4 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Environment
 .env
+
+# ✅ Signing — GitHub वर जाऊ नये
+*.jks
+*.keystore
+android/app/key.properties

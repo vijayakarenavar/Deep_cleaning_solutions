@@ -50,10 +50,6 @@ class SRGAppBar extends ConsumerWidget implements PreferredSizeWidget {
               right: 0,
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.search, color: AppColors.black),
-                    onPressed: () {},
-                  ),
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -137,10 +133,6 @@ class SRGSliverAppBar extends ConsumerWidget {
               right: 0,
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.search, color: AppColors.black),
-                    onPressed: () {},
-                  ),
                   Stack(
                     clipBehavior: Clip.none,
                     children: [

@@ -35,6 +35,9 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
 
   final EnquiryService _enquiryService = EnquiryService();
 
+  // ✅ simple email format check
+  final RegExp _emailRegex = RegExp(r'^[\w\.\-]+@[\w\-]+\.[\w\-\.]+$');
+
   final List<String> _services = [
     'Flat Cleaning',
     'Bungalow Cleaning',
@@ -130,6 +133,25 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
       return;
     }
 
+    // ✅ FIX: if user opted for paid inspection, date & time are mandatory —
+    // previously these were never checked, so a user could tap "Proceed to
+    // Payment" with no date/time chosen and inspectionDate/inspectionTime
+    // would silently go to the API as null.
+    if (_orderInspection) {
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select inspection date'), backgroundColor: AppColors.secondary),
+        );
+        return;
+      }
+      if (_selectedTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select inspection time'), backgroundColor: AppColors.secondary),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -219,22 +241,33 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
               const SizedBox(height: 10),
 
               // ── Email & Mobile ─────────────────
+              // ✅ FIX: email was not required and had no format check
               Row(children: [
-                Expanded(child: _FormField(ctrl: _emailCtrl,  hint: 'Email',             keyboardType: TextInputType.emailAddress)),
+                Expanded(child: _FormField(
+                  ctrl: _emailCtrl,
+                  hint: 'Email',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (!_emailRegex.hasMatch(v.trim())) return 'Invalid email';
+                    return null;
+                  },
+                )),
                 const SizedBox(width: 10),
                 Expanded(child: _FormField(ctrl: _mobileCtrl, hint: 'Mobile (10 digits)', keyboardType: TextInputType.phone, validator: (v) => v!.length != 10 ? '10 digits required' : null)),
               ]),
               const SizedBox(height: 10),
 
               // ── Address ────────────────────────
-              _FormField(ctrl: _addressCtrl, hint: 'Address', maxLines: 2),
+              // ✅ FIX: address was not required
+              _FormField(ctrl: _addressCtrl, hint: 'Address', maxLines: 2, validator: (v) => v!.trim().isEmpty ? 'Required' : null),
               const SizedBox(height: 10),
 
               // ── State & City ───────────────────
               Row(children: [
-                Expanded(child: _FormField(ctrl: _stateCtrl, hint: 'State')),
+                Expanded(child: _FormField(ctrl: _stateCtrl, hint: 'State', validator: (v) => v!.trim().isEmpty ? 'Required' : null)),
                 const SizedBox(width: 10),
-                Expanded(child: _FormField(ctrl: _cityCtrl,  hint: 'City')),
+                Expanded(child: _FormField(ctrl: _cityCtrl,  hint: 'City', validator: (v) => v!.trim().isEmpty ? 'Required' : null)),
               ]),
               const SizedBox(height: 10),
 
@@ -256,58 +289,59 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
               ),
               const SizedBox(height: 14),
 
-    Container(
-    decoration: BoxDecoration(
-    color: AppColors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.border),
-    ),
-    padding: const EdgeInsets.all(14),
-    child: Column(
-    children: [
-    Row(
-    children: [
-    Checkbox(
-    value: _orderInspection,
-    onChanged: (v) => setState(() => _orderInspection = v ?? false),
-    activeColor: AppColors.primary,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
-    ),
-    const Expanded(
-    child: Text(
-    'Order inspection at just Rs 200/-',
-    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
-    ),
-    ),
-    ],
-    ),
-    if (_orderInspection) ...[
-    const SizedBox(height: 8),
-    Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-    color: const Color(0xFFFFF8E1),
-    borderRadius: BorderRadius.circular(8),
-    border: Border.all(color: const Color(0xFFFFE082)),
-    ),
-    child: Row(
-    children: const [
-    Icon(Icons.info_outline, color: Color(0xFFFF8F00), size: 16),
-    SizedBox(width: 8),
-    Expanded(
-    child: Text(
-    'You will be redirected to PhonePe payment gateway to complete the Rs 200 payment for inspection scheduling.',
-    style: TextStyle(fontSize: 12, color: Color(0xFF5D4037)),
-    ),
-    ),
-    ],
-    ),
-    ),
-    ],
-    ],
-    ),
-    ),
-    const SizedBox(height: 10),
+              // ── Order Inspection ───────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _orderInspection,
+                          onChanged: (v) => setState(() => _orderInspection = v ?? false),
+                          activeColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Order inspection at just Rs 200/-',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_orderInspection) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF8E1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFFE082)),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.info_outline, color: Color(0xFFFF8F00), size: 16),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'You will be redirected to PhonePe payment gateway to complete the Rs 200 payment for inspection scheduling.',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF5D4037)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
 
               // ── Schedule Inspection ────────────
               Container(

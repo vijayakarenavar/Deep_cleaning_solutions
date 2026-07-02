@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/responsive.dart';
 import 'package:dcs_app/providers/cart_provider.dart';
@@ -87,12 +88,19 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
       );
 
       if (mounted) {
-        final errorMsg = ref.read(cartProvider).error ?? 'Failed to add to cart.';
-        if (success) Navigator.pop(context);
-        _showSnackBar(
-          success ? '${widget.title} added to cart!' : errorMsg,
-          isError: !success,
-        );
+        if (success) {
+          // ✅ show confirmation first, give it a moment to actually be seen,
+          // then close the sheet and redirect to the cart page
+          _showSnackBar('${widget.title} added to cart!');
+          await Future.delayed(const Duration(milliseconds: 700));
+          if (mounted) {
+            Navigator.pop(context);
+            context.go('/cart');
+          }
+        } else {
+          final errorMsg = ref.read(cartProvider).error ?? 'Failed to add to cart.';
+          _showSnackBar(errorMsg, isError: true);
+        }
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
