@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
+import 'package:dcs_app/utils/app_images.dart';
+import 'package:dcs_app/utils/service_catalog.dart';
 import 'package:dcs_app/providers/wishlist_provider.dart';
-import 'package:dcs_app/providers/cart_provider.dart';
+import 'package:dcs_app/providers/product_provider.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
+import 'service_detail_sheet.dart';
 
 class WishlistScreen extends ConsumerStatefulWidget {
   const WishlistScreen({super.key});
@@ -19,12 +22,54 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(wishlistProvider.notifier).getWishlist());
+    Future.microtask(() async {
+      ref.read(wishlistProvider.notifier).getWishlist();
+      // ✅ wishlist API मध्ये sqft_min/sqft_max नाही, म्हणून furnished/
+      // unfurnished flats (जिथे तो backend कडून dynamically येतो) इथेच
+      // आधी लोड करून घेतो
+      await ref.read(productProvider.notifier).getFurnishedFlats();
+      await ref.read(productProvider.notifier).getUnfurnishedFlats();
+    });
+  }
+
+  num? _parseNum(dynamic v) {
+    if (v is num) return v;
+    if (v is String) return num.tryParse(v);
+    return null;
+  }
+
+  // ✅ wishlist item च्या id वरून furnished/unfurnished flats मध्ये matching
+  // product शोधतो आणि backend चाच actual sqft_min/sqft_max परत देतो —
+  // कुठलाही number इथे hardcode नाही, backend कडून जो range येईल तोच वापरला जातो
+  Map<String, num?> _getSqftRange(int? productId) {
+    if (productId == null) return {'min': null, 'max': null};
+
+    final productState = ref.read(productProvider);
+    final allFlats = [
+      ...productState.furnishedFlats,
+      ...productState.unfurnishedFlats,
+    ];
+
+    Map<String, dynamic>? match;
+    for (final p in allFlats) {
+      if (p['id'] == productId) {
+        match = p;
+        break;
+      }
+    }
+
+    if (match == null) return {'min': null, 'max': null};
+
+    return {
+      'min': _parseNum(match['sqft_min']),
+      'max': _parseNum(match['sqft_max']),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final wishlistState = ref.watch(wishlistProvider);
+    ref.watch(productProvider); // ✅ flats load झाल्यावर rebuild होण्यासाठी
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -33,7 +78,13 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.go('/'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
         ),
         title: const Text('My Wishlist', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
@@ -57,27 +108,30 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
                 await ref.read(wishlistProvider.notifier)
                     .removeFromWishlist(item['id']);
               },
-              onAddToCart: () async {
-                final success = await ref
-                    .read(cartProvider.notifier)
-                    .addToCart(productId: item['id']);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success
-                            ? '${item['title']} added to cart!'
-                            : 'Failed to add to cart.',
-                      ),
-                      backgroundColor: success
-                          ? AppColors.green
-                          : AppColors.secondary,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
-                }
+              onAddToCart: () {
+                final title     = item['title'] ?? item['name'] ?? 'Service';
+                final productId = item['id'] as int?;
+                final slug      = item['slug'] as String?;
+
+                // ✅ dynamic — backend च्या actual product data मधून sqft घेतो
+                final sqftRange = _getSqftRange(productId);
+
+                // ✅ title वरून योग्य services breakdown शोधतो (BHK screen सारखं)
+                final services = ServiceCatalog.fromTitle(title) ?? const [];
+
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => ServiceDetailSheet(
+                    title: title,
+                    services: services,
+                    productId: productId,
+                    slug: slug,
+                    sqftMin: sqftRange['min'],
+                    sqftMax: sqftRange['max'],
+                  ),
+                );
               },
             );
           },
@@ -133,6 +187,38 @@ class _EmptyWishlist extends StatelessWidget {
   }
 }
 
+String _getImageForItem(String name) {
+  final n = name.toLowerCase();
+
+  int bhkIndex = 0;
+  if (n.contains('2 bhk') || n.contains('2bhk')) bhkIndex = 1;
+  else if (n.contains('3 bhk') || n.contains('3bhk')) bhkIndex = 2;
+  else if (n.contains('4 bhk') || n.contains('4bhk')) bhkIndex = 3;
+  else if (n.contains('5 bhk') || n.contains('5bhk')) bhkIndex = 4;
+
+  if (n.contains('unfurnished')) {
+    return AppImages.unfurnishedBHK[bhkIndex % AppImages.unfurnishedBHK.length];
+  } else if (n.contains('furnished')) {
+    return AppImages.furnishedBHK[bhkIndex % AppImages.furnishedBHK.length];
+  }
+
+  if (n.contains('bungalow'))   return AppImages.bungalow;
+  if (n.contains('office'))     return AppImages.office;
+  if (n.contains('society'))    return AppImages.society;
+  if (n.contains('restaurant')) return AppImages.restaurant;
+  if (n.contains('shop'))       return AppImages.shop;
+  if (n.contains('school'))     return AppImages.school;
+  if (n.contains('car'))        return AppImages.carWash;
+  if (n.contains('kitchen'))    return AppImages.kitchen[0];
+  if (n.contains('bathroom') || n.contains('bath')) return AppImages.bathroom[0];
+  if (n.contains('bedroom') || n.contains('bed'))   return AppImages.bedroom[0];
+  if (n.contains('hall'))       return AppImages.hall[0];
+  if (n.contains('floor'))      return AppImages.floor[0];
+  if (n.contains('window'))     return AppImages.window[0];
+
+  return AppImages.flat;
+}
+
 class _WishlistItemCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onRemove;
@@ -148,7 +234,10 @@ class _WishlistItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String name  = item['title'] ?? item['name'] ?? 'Service';
     final double price = (item['price'] ?? 0.0).toDouble();
-    final String? image = item['image'] ?? item['thumbnail'];
+
+    final String? apiImage = item['image'] ?? item['thumbnail'];
+    final bool hasApiImage = apiImage != null && apiImage.isNotEmpty;
+    final String fallbackImage = _getImageForItem(name);
 
     return Container(
       decoration: BoxDecoration(
@@ -163,27 +252,16 @@ class _WishlistItemCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            // Image
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: image != null && image.isNotEmpty
-                  ? AppNetworkImage(
-                url: image,
+              child: AppNetworkImage(
+                url: hasApiImage ? apiImage : fallbackImage,
                 width: 70,
                 height: 70,
                 fit: BoxFit.cover,
-              )
-                  : Container(
-                width: 70,
-                height: 70,
-                color: AppColors.surface,
-                child: const Icon(Icons.cleaning_services,
-                    color: AppColors.primary, size: 32),
               ),
             ),
             const SizedBox(width: 12),
-
-            // Name + Price
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,18 +288,14 @@ class _WishlistItemCard extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Buttons
             Column(
               children: [
-                // Remove
                 IconButton(
                   onPressed: onRemove,
                   icon: const Icon(Icons.favorite,
                       color: AppColors.secondary, size: 22),
                   tooltip: 'Remove from wishlist',
                 ),
-                // Add to Cart
                 ElevatedButton(
                   onPressed: onAddToCart,
                   style: ElevatedButton.styleFrom(

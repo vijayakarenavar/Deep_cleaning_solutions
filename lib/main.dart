@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:dcs_app/screens/change_password_screen.dart';
 import 'package:dcs_app/screens/contact_screen.dart';
+import 'package:dcs_app/screens/edit_profile_screen.dart';
 import 'package:dcs_app/screens/forgot_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -155,6 +156,10 @@ class _DCSAppState extends ConsumerState<DCSApp> {
         GoRoute(
           path: '/forgot-password',
           builder: (context, state) => const ForgotPasswordScreen(),
+        ),
+        GoRoute(
+          path: '/edit-profile',
+          builder: (context, state) => const EditProfileScreen(),
         ),
         GoRoute(
           path: '/orders/:id',

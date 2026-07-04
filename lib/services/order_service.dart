@@ -83,12 +83,12 @@ class OrderService {
   }
 
   // ── Process Order (Full Payment) ───────────────────────────────────
-  // ✅ orderNotes added (optional)
   Future<Map<String, dynamic>> processOrder({
     required String firstName,
     required String lastName,
     required String email,
     required int country,
+    String? apartment, // ✅ NEW: matches website's Flat/Bungalow No. + Wing
     required String address,
     required String city,
     required String state,
@@ -105,6 +105,7 @@ class OrderService {
         'last_name':    lastName,
         'email':        email,
         'country':      country,
+        if (apartment != null && apartment.isNotEmpty) 'apartment': apartment, // ✅ NEW
         'address':      address,
         'city':         city,
         'state':        state,
@@ -119,12 +120,12 @@ class OrderService {
   }
 
   // ── Process Advance Order (Advance Payment) ────────────────────────
-  // ✅ orderNotes added (optional)
   Future<Map<String, dynamic>> processAdvanceOrder({
     required String firstName,
     required String lastName,
     required String email,
     required int country,
+    String? apartment, // ✅ NEW: matches website's Flat/Bungalow No. + Wing
     required String address,
     required String city,
     required String state,
@@ -141,6 +142,7 @@ class OrderService {
         'last_name':    lastName,
         'email':        email,
         'country':      country,
+        if (apartment != null && apartment.isNotEmpty) 'apartment': apartment, // ✅ NEW
         'address':      address,
         'city':         city,
         'state':        state,

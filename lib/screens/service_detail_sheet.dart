@@ -10,7 +10,6 @@ class ServiceDetailSheet extends ConsumerStatefulWidget {
   final List<Map<String, String>> services;
   final int? productId;
   final String? slug;
-  // ✅ backend च्या product object मधून आलेला sqft range — hardcoded नाही
   final num? sqftMin;
   final num? sqftMax;
 
@@ -41,8 +40,6 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
     super.dispose();
   }
 
-  // ✅ Range कुठेही hardcode नाही — जे backend पाठवेल तेच hint मध्ये दिसेल.
-  // backend ने range बदलला (min/max) तरी इथे काहीही बदलावं लागत नाही.
   String get _sqftHint {
     final min = widget.sqftMin;
     final max = widget.sqftMax;
@@ -52,13 +49,8 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
     return 'Enter sq.ft.';
   }
 
-  // ✅ 650.0 → "650", 650.5 → "650.5" असं स्वच्छ दाखवतो (backend कडून जो number
-  // आला तोच, फक्त फॉरमॅटिंग)
   String _fmt(num n) => n == n.roundToDouble() ? n.toStringAsFixed(0) : n.toString();
 
-  // ✅ backend कडून raw validation message आलाच (उदा. दुसऱ्या field साठी) तर तो
-  // technical/Laravel-style वाक्य clean करून दाखवतो. यातले आकडे backend च्या
-  // message मधूनच dynamically काढलेले असतात — कुठलाही range इथे hardcode नाही.
   String _humanizeError(String raw) {
     final lower = raw.toLowerCase();
 
@@ -74,7 +66,6 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
       }
     }
 
-    // unrecognized pattern → backend चा message जसाच्या तसा
     return raw;
   }
 
@@ -89,18 +80,11 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
     );
   }
 
-  // ✅ इथे कुठलाही client-side hardcoded validation message नाही.
-  // sq.ft रिकामं/अवैध/500 पेक्षा कमी असेल तरी request backend कडे जाते
-  // आणि backend जो validation error पाठवेल (422 चा errors object) तोच
-  // जसाच्या तसा (ApiClient._extractServerMessage मार्फत) दाखवला जातो.
   Future<void> _addToCart() async {
     if (widget.productId == null) return;
 
     final double sqft = double.tryParse(_sqftCtrl.text.trim()) ?? 0;
 
-    // ✅ backend कडून आधीच मिळालेला (dynamic) range वापरून लगेच, स्पष्ट भाषेत
-    // सांगतो — number कुठेही hardcode नाही, तो widget.sqftMin/sqftMax मधून
-    // (product data) येतो. Range बदलला तरी हा code तसाच राहतो.
     if (widget.sqftMin != null && sqft < widget.sqftMin!) {
       _showSnackBar(
         'Please enter at least ${_fmt(widget.sqftMin!)} sq.ft. for this service.',
@@ -133,8 +117,6 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
 
       if (mounted) {
         if (success) {
-          // ✅ show confirmation first, give it a moment to actually be seen,
-          // then close the sheet and redirect to the cart page
           _showSnackBar('${widget.title} added to cart!');
           await Future.delayed(const Duration(milliseconds: 700));
           if (mounted) {
@@ -142,8 +124,6 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
             context.go('/cart');
           }
         } else {
-          // ✅ backend कडून आलेला actual error/validation message — पण जर तो
-          // technical (raw Laravel style) असेल तर स्वच्छ भाषेत rewrite करतो
           final rawError = ref.read(cartProvider).error;
           if (rawError != null && rawError.isNotEmpty) {
             _showSnackBar(_humanizeError(rawError), isError: true);
@@ -163,7 +143,7 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
       initialChildSize: 0.92,
       minChildSize: 0.5,
       maxChildSize: 0.95,
-      builder: (_, scrollCtrl) => Scaffold(  // ✅ Scaffold add kela
+      builder: (_, scrollCtrl) => Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
           decoration: const BoxDecoration(
@@ -314,37 +294,42 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                       onChanged: (v) => setState(() => _removeCover = v!),
                     ),
 
-                    const SizedBox(height: 16),
-                    const Divider(color: AppColors.border),
-                    const SizedBox(height: 8),
+                    // ✅ CHANGED: services empty असेल (उदा. wishlist item BHK
+                    // pattern शी match झाला नाही) तर हा संपूर्ण section
+                    // (Divider + header + list + Divider) पूर्णपणे लपतो
+                    if (widget.services.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Divider(color: AppColors.border),
+                      const SizedBox(height: 8),
 
-                    // Services Included
-                    const Text(
-                      'Services Included:',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.black),
-                    ),
-                    const SizedBox(height: 12),
-
-                    ...widget.services.map((s) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '${s['title']} : ',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
-                            ),
-                            TextSpan(
-                              text: s['desc'],
-                              style: const TextStyle(fontSize: 13, color: AppColors.textMuted, height: 1.5),
-                            ),
-                          ],
-                        ),
+                      const Text(
+                        'Services Included:',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.black),
                       ),
-                    )),
+                      const SizedBox(height: 12),
 
-                    const SizedBox(height: 16),
-                    const Divider(color: AppColors.border),
+                      ...widget.services.map((s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${s['title']} : ',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
+                              ),
+                              TextSpan(
+                                text: s['desc'],
+                                style: const TextStyle(fontSize: 13, color: AppColors.textMuted, height: 1.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )),
+
+                      const SizedBox(height: 16),
+                      const Divider(color: AppColors.border),
+                    ],
+
                     const SizedBox(height: 12),
 
                     // Add to Cart Button

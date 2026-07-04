@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
+import 'cart_provider.dart'; // ✅ NEW: needed to re-sync cart after auth changes
 
 // ── Auth State ────────────────────────────────────────────────────────
 class AuthState {
@@ -40,8 +41,9 @@ class AuthState {
 // ── Auth Notifier ─────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService = AuthService();
+  final Ref _ref; // ✅ NEW
 
-  AuthNotifier() : super(const AuthState()) {
+  AuthNotifier(this._ref) : super(const AuthState()) { // ✅ CHANGED
     _checkLoginStatus();
   }
 
@@ -53,6 +55,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final isLoggedIn = await _authService.isLoggedIn();
       if (isLoggedIn) {
         await getProfile();
+        // ✅ NEW: app-startup वेळी already-logged-in असेल तर cart पण
+        // token-bound session शी sync कर (CartNotifier चा constructor
+        // हा provider पहिल्यांदा read होतो तेव्हाच चालतो — तोपर्यंत
+        // token attach झालेला नसू शकतो, म्हणून इथे परत sync करणं गरजेचं).
+        await _ref.read(cartProvider.notifier).getCart();
       } else {
         state = state.copyWith(isInitialized: true, isLoggedIn: false);
       }
@@ -62,6 +69,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       ApiClient.suppressUnauthorizedRedirect = false;
     }
   }
+
   // ── Register ───────────────────────────────────────────────────────
   Future<bool> register({
     required String name,
@@ -79,6 +87,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         user:      response['user'],
       );
+      // ✅ NEW: register response मध्ये token मिळतो, म्हणजे यापुढे सगळे
+      // calls Authorization header सोबत जातील — cart sync कर.
+      await _ref.read(cartProvider.notifier).getCart();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -103,6 +114,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isInitialized: true,
         user:          response['user'],
       );
+      // ✅ NEW: token आता attach झालाय — backend ला logged-in user चा
+      // (कदाचित वेगळा/रिकामा) cart दिसतो. Local cart state त्या
+      // खऱ्या session शी sync कर, नाहीतर checkout वर stale items +
+      // ₹0 totals दिसतात (server cart रिकामा असल्यामुळे).
+      await _ref.read(cartProvider.notifier).getCart();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -116,6 +132,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _authService.logout();
       state = const AuthState(isInitialized: true);
+      // ✅ NEW: token हटला — आता guest-id सोबत cart परत fetch कर,
+      // जेणेकरून UI मध्ये मागच्या logged-in session चा cart राहणार नाही.
+      await _ref.read(cartProvider.notifier).getCart();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -223,5 +242,5 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 // ── Provider ──────────────────────────────────────────────────────────
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-      (ref) => AuthNotifier(),
+      (ref) => AuthNotifier(ref), // ✅ CHANGED: ref pass केला
 );

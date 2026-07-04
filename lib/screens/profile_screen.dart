@@ -214,12 +214,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     _ProfileMenuItem(
                         icon: Icons.person_outline,
-                        label: 'My Profile',
-                        onTap: () {}),
+                        label: 'Edit Profile',
+                        onTap: () => context.push('/edit-profile')),
                     _ProfileMenuItem(
                         icon: Icons.favorite_outline,
                         label: 'Wishlist',
-                        onTap: () => context.go('/wishlist')),
+                        onTap: () => context.push('/wishlist')),
                     _ProfileMenuItem(
                         icon: Icons.lock_outline,
                         label: 'Change Password',

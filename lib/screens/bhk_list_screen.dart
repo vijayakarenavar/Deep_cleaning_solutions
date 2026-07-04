@@ -6,6 +6,7 @@ import 'package:dcs_app/utils/app_colors.dart';
 import 'package:dcs_app/utils/app_images.dart';
 import 'package:dcs_app/widgets/app_network_image.dart';
 import 'package:dcs_app/utils/responsive.dart';
+import 'package:dcs_app/utils/service_catalog.dart'; // ✅ नवीन import
 import 'package:dcs_app/providers/product_provider.dart';
 import 'package:dcs_app/providers/wishlist_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -29,76 +30,8 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     {'name': '5 BHK'},
   ];
 
-  static const Map<String, List<Map<String, String>>> _furnishedServices = {
-    '1 BHK': [
-      {'title': 'Hall Cleaning',     'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Cabinets Cleaning (Inside & Outside), Fans/AC, Floor Scrubbing & Mopping, Tables/Chairs/Lamp/Frames/TV set etc.'},
-      {'title': 'Bedroom Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Cabinets Cleaning (Inside & Outside), Fans/AC, Floor Scrubbing & Mopping, Bed (Inside/Outside)'},
-      {'title': 'Kitchen Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans, Floor Scrubbing & Mopping, Chimney/Stove (Exterior), Cabinets & Trolly Cleaning (Inside & Outside, Steam Cleaner)'},
-      {'title': 'Bathroom Cleaning', 'desc': 'Commode Pot Cleaning, Shower, Taps, Exhaust (WetWiping), Hard Stain Removal, Drill Brush Scrubbing, Sink Cleaning, Mirrors/Glass wiping'},
-      {'title': 'Balcony Cleaning',  'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '2 BHK': [
-      {'title': 'Hall Cleaning',     'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Cabinets Cleaning (Inside & Outside), Fans/AC, Floor Scrubbing & Mopping'},
-      {'title': 'Bedroom Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Cabinets (Inside & Outside), Fans/AC, Floor Scrubbing, Bed (Inside/Outside) — 2 Bedrooms'},
-      {'title': 'Kitchen Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans, Floor Scrubbing & Mopping, Chimney/Stove (Exterior), Steam Cleaner'},
-      {'title': 'Bathroom Cleaning', 'desc': 'Commode Pot Cleaning, Shower, Taps, Exhaust (WetWiping), Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 2 Bathrooms'},
-      {'title': 'Balcony Cleaning',  'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '3 BHK': [
-      {'title': 'Hall Cleaning',     'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing & Mopping, Tables/Chairs/Lamp/Frames/TV set etc.'},
-      {'title': 'Bedroom Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing, Bed (Inside/Outside) — 3 Bedrooms'},
-      {'title': 'Kitchen Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans, Floor Scrubbing, Chimney/Stove (Exterior), Cabinets & Trolly (Steam Cleaner)'},
-      {'title': 'Bathroom Cleaning', 'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 3 Bathrooms'},
-      {'title': 'Balcony Cleaning',  'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '4 BHK': [
-      {'title': 'Hall Cleaning',     'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing & Mopping'},
-      {'title': 'Bedroom Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing, Bed (Inside/Outside) — 4 Bedrooms'},
-      {'title': 'Kitchen Cleaning',  'desc': 'Dry Dusting, Vacuuming, Fans, Floor Scrubbing, Chimney/Stove (Exterior), Cabinets & Trolly (Steam Cleaner)'},
-      {'title': 'Bathroom Cleaning', 'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 4 Bathrooms'},
-      {'title': 'Balcony Cleaning',  'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '5 BHK': [
-      {'title': 'Hall Cleaning',     'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing & Mopping'},
-      {'title': 'Bedroom Cleaning',  'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing, Bed (Inside/Outside) — 5 Bedrooms'},
-      {'title': 'Kitchen Cleaning',  'desc': 'Dry Dusting, Vacuuming, Fans, Floor Scrubbing, Chimney/Stove (Exterior), Cabinets & Trolly (Steam Cleaner)'},
-      {'title': 'Bathroom Cleaning', 'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 5 Bathrooms'},
-      {'title': 'Balcony Cleaning',  'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-  };
-
-  static const Map<String, List<Map<String, String>>> _unfurnishedServices = {
-    '1 BHK': [
-      {'title': 'Hall & Bedroom Cleaning', 'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Cabinets Cleaning (Outside), Fans/AC, Floor Scrubbing & Mopping'},
-      {'title': 'Kitchen Cleaning',        'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans, Floor Scrubbing & Mopping, Chimney/Stove (Exterior Cleaning)'},
-      {'title': 'Bathroom Cleaning',       'desc': 'Commode Pot Cleaning, Shower, Taps, Exhaust (WetWiping), Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping'},
-      {'title': 'Balcony Cleaning',        'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '2 BHK': [
-      {'title': 'Hall & Bedroom Cleaning', 'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Cabinets Cleaning (Outside), Fans/AC, Floor Scrubbing & Mopping — 2 Bedrooms'},
-      {'title': 'Kitchen Cleaning',        'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans, Floor Scrubbing & Mopping, Chimney/Stove (Exterior Cleaning)'},
-      {'title': 'Bathroom Cleaning',       'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 2 Bathrooms'},
-      {'title': 'Balcony Cleaning',        'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '3 BHK': [
-      {'title': 'Hall & Bedroom Cleaning', 'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing & Mopping — 3 Bedrooms'},
-      {'title': 'Kitchen Cleaning',        'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans, Floor Scrubbing, Chimney/Stove (Exterior Cleaning)'},
-      {'title': 'Bathroom Cleaning',       'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 3 Bathrooms'},
-      {'title': 'Balcony Cleaning',        'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '4 BHK': [
-      {'title': 'Hall & Bedroom Cleaning', 'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing & Mopping — 4 Bedrooms'},
-      {'title': 'Kitchen Cleaning',        'desc': 'Dry Dusting, Vacuuming, Fans, Floor Scrubbing, Chimney/Stove (Exterior Cleaning)'},
-      {'title': 'Bathroom Cleaning',       'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 4 Bathrooms'},
-      {'title': 'Balcony Cleaning',        'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-    '5 BHK': [
-      {'title': 'Hall & Bedroom Cleaning', 'desc': 'Dry Dusting, Vacuuming, Wet Wiping, Fans/AC, Floor Scrubbing & Mopping — 5 Bedrooms'},
-      {'title': 'Kitchen Cleaning',        'desc': 'Dry Dusting, Vacuuming, Fans, Floor Scrubbing, Chimney/Stove (Exterior Cleaning)'},
-      {'title': 'Bathroom Cleaning',       'desc': 'Commode Pot Cleaning, Shower, Taps, Hard Stain Removal, Sink Cleaning, Mirrors/Glass wiping — 5 Bathrooms'},
-      {'title': 'Balcony Cleaning',        'desc': 'Dry Dusting, Vacuuming, Floor Scrubbing'},
-    ],
-  };
+  // ❌ जुने _furnishedServices आणि _unfurnishedServices maps इथून काढले —
+  // आता ते ServiceCatalog मध्ये (lib/utils/service_catalog.dart) आहेत.
 
   @override
   void initState() {
@@ -113,11 +46,13 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     });
   }
 
+  // ✅ CHANGED: आता ServiceCatalog मधून services घेतो
   List<Map<String, String>> _getServices(String bhk) {
-    if (widget.type == 'Furnished') {
-      return _furnishedServices[bhk] ?? _furnishedServices['1 BHK']!;
-    }
-    return _unfurnishedServices[bhk] ?? _unfurnishedServices['1 BHK']!;
+    final index = _bhkList.indexWhere((e) => e['name'] == bhk);
+    return ServiceCatalog.byIndex(
+      index == -1 ? 0 : index,
+      isFurnished: widget.type == 'Furnished',
+    );
   }
 
   String _getImageUrl(int index) {
@@ -127,7 +62,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     return AppImages.unfurnishedBHK[index % AppImages.unfurnishedBHK.length];
   }
 
-  // ✅ FIXED: ref.read cha naahi, direct products list pass karo
   int? _getProductIdFromList(List<dynamic> products, int index) {
     if (products.isNotEmpty && index < products.length) {
       return products[index]['id'] as int?;
@@ -142,8 +76,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
     return null;
   }
 
-  // ✅ NEW: sqft_min / sqft_max थेट backend च्या product object मधून —
-  // कुठलाही range इथे hardcode केलेला नाही, जो असेल तोच वापरला जातो.
   num? _getSqftMinFromList(List<dynamic> products, int index) {
     if (products.isNotEmpty && index < products.length) {
       final v = products[index]['sqft_min'];
@@ -206,11 +138,9 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIXED: ref.watch vaparla — dono sathi reactive
     final productState = ref.watch(productProvider);
     ref.watch(wishlistProvider);
 
-    // ✅ FIXED: build madhe products kadhla — reactive ahe
     final products = widget.type == 'Furnished'
         ? productState.furnishedFlats
         : productState.unfurnishedFlats;
@@ -251,13 +181,11 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                 final bhkName  = _bhkList[i]['name'] as String;
                 final fullName = '$bhkName ${widget.type} Homes';
 
-                // ✅ FIXED: products directly vaparle — ref.watch(productProvider) already build madhe ahe
                 final productId = _getProductIdFromList(products, i);
                 final slug      = _getSlugFromList(products, i);
                 final sqftMin   = _getSqftMinFromList(products, i);
                 final sqftMax   = _getSqftMaxFromList(products, i);
 
-                // ✅ FIXED: productId correct milto ata — heart reactive hoil
                 final inWishlist = productId != null
                     ? ref.watch(isInWishlistProvider(productId))
                     : false;
@@ -302,8 +230,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                               height: R.wp(context, 45),
                               fit: BoxFit.cover,
                             ),
-
-                            // BHK size badge — the only label shown on the image
                             Positioned(
                               bottom: 10, left: 10,
                               child: Container(
@@ -322,8 +248,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                                 ),
                               ),
                             ),
-
-                            // ✅ Heart icon — top right
                             Positioned(
                               top: 8, right: 8,
                               child: GestureDetector(
@@ -356,7 +280,6 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                             ),
                           ],
                         ),
-
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                           child: Row(

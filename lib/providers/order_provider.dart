@@ -19,11 +19,12 @@ class OrderState {
   final double discount;
   final String? couponCode;
   final double grandTotal;
+  final double advanceAmount; // ✅ NEW: from /checkout/summary's advance_amount
   final bool isInitLoading;
   final bool isCouponLoading;
   final String? couponError;
 
-  // ✅ NEW: area suggested from the customer's saved address (country_id),
+  // Area suggested from the customer's saved address (country_id),
   // returned by /checkout/init. This is a HINT for the UI dropdown only —
   // it must never be auto-applied to shipping/grandTotal. The user has to
   // actually pick an area before any charge is calculated.
@@ -40,9 +41,10 @@ class OrderState {
     this.selectedAreaId,
     this.shippingCharge  = 0,
     this.subtotal        = 0,
-    this.discount        = 0,
+    this.discount         = 0,
     this.couponCode,
     this.grandTotal       = 0,
+    this.advanceAmount    = 0, // ✅ NEW
     this.isInitLoading    = false,
     this.isCouponLoading  = false,
     this.couponError,
@@ -63,6 +65,7 @@ class OrderState {
     double? discount,
     String? couponCode,
     double? grandTotal,
+    double? advanceAmount, // ✅ NEW
     bool? isInitLoading,
     bool? isCouponLoading,
     String? couponError,
@@ -82,6 +85,7 @@ class OrderState {
       discount:       discount       ?? this.discount,
       couponCode:     couponCode     ?? this.couponCode,
       grandTotal:     grandTotal     ?? this.grandTotal,
+      advanceAmount:  advanceAmount  ?? this.advanceAmount, // ✅ NEW
       isInitLoading:   isInitLoading   ?? this.isInitLoading,
       isCouponLoading: isCouponLoading ?? this.isCouponLoading,
       couponError:     couponError     ?? this.couponError,
@@ -93,7 +97,13 @@ class OrderState {
 double _toDouble(dynamic v) {
   if (v == null) return 0.0;
   if (v is num) return v.toDouble();
-  return double.tryParse(v.toString()) ?? 0.0;
+  // ✅ FIX: backend sends amounts >= 1000 with a thousands-separator comma
+  // (e.g. "6,600.00"), which double.tryParse() cannot handle and silently
+  // returns null for -> was showing up as 0 in the UI (subtotal/grand_total
+  // bug). Smaller amounts like "650.00" have no comma and parsed fine,
+  // which is why only the larger fields looked broken. Strip commas first.
+  final cleaned = v.toString().replaceAll(',', '');
+  return double.tryParse(cleaned) ?? 0.0;
 }
 
 class OrderNotifier extends StateNotifier<OrderState> {
@@ -157,14 +167,10 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   // ── Checkout Init (area list + prefilled subtotal) ──────────────────
-  // ✅ FIX: previously this auto-called selectArea(preselected) using the
-  // customer's saved-address country_id, which silently applied that
-  // area's shipping charge to the summary/grandTotal before the user ever
-  // touched the area dropdown (e.g. Baner ₹425 showing with nothing
-  // selected on screen). We now only STORE the suggestion in
-  // `suggestedAreaId` so the UI can pre-highlight it if it wants to, but
-  // we never call selectArea() here. Shipping/discount/grandTotal stay at
-  // 0 until the user explicitly picks an area.
+  // Only STORES the customer's saved-address area as a suggestion
+  // (`suggestedAreaId`) — never auto-applies it. Shipping/discount/
+  // grandTotal/advanceAmount stay at 0 until the user explicitly picks
+  // an area.
   Future<void> getCheckoutInit() async {
     state = state.copyWith(isInitLoading: true, error: null);
     try {
@@ -188,11 +194,6 @@ class OrderNotifier extends StateNotifier<OrderState> {
         subtotal:        _toDouble(data['subtotal']),
         suggestedAreaId: preselected,
       );
-
-      // ❌ REMOVED: no longer auto-applying the saved address's area.
-      // if (preselected != null) {
-      //   await selectArea(preselected);
-      // }
     } catch (e) {
       state = state.copyWith(isInitLoading: false, error: e.toString());
     }
@@ -216,7 +217,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       timeSlots: state.timeSlots, redirectUrl: state.redirectUrl, error: state.error,
       cityAreas: state.cityAreas, selectedAreaId: state.selectedAreaId,
       shippingCharge: state.shippingCharge, subtotal: state.subtotal, discount: state.discount,
-      couponCode: state.couponCode, grandTotal: state.grandTotal,
+      couponCode: state.couponCode, grandTotal: state.grandTotal, advanceAmount: state.advanceAmount,
       isInitLoading: state.isInitLoading, isCouponLoading: true, couponError: null,
       suggestedAreaId: state.suggestedAreaId,
     );
@@ -230,7 +231,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         timeSlots: state.timeSlots, redirectUrl: state.redirectUrl, error: state.error,
         cityAreas: state.cityAreas, selectedAreaId: state.selectedAreaId,
         shippingCharge: state.shippingCharge, subtotal: state.subtotal, discount: state.discount,
-        couponCode: state.couponCode, grandTotal: state.grandTotal,
+        couponCode: state.couponCode, grandTotal: state.grandTotal, advanceAmount: state.advanceAmount,
         isInitLoading: state.isInitLoading, isCouponLoading: false,
         couponError: 'Invalid or expired coupon code',
         suggestedAreaId: state.suggestedAreaId,
@@ -261,6 +262,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       discount:       _toDouble(data['discount']),
       couponCode:     data['coupon_code']?.toString(),
       grandTotal:     _toDouble(data['grand_total']),
+      advanceAmount:  _toDouble(data['advance_amount']), // ✅ NEW
       isInitLoading:   false,
       isCouponLoading: couponLoadingDone ? false : state.isCouponLoading,
       couponError:     null,
@@ -269,13 +271,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   // ── Process Order (Full Payment) ───────────────────────────────────
-  // ✅ orderNotes added (optional)
   Future<bool> processOrder({
     required String firstName,
     required String lastName,
     required String email,
     required int country,
-    required String address,
+    String? apartment, // ✅ NEW: Flat/Bungalow No. + Wing combined
+    required String address, // Society/Property Name + Landmark combined
     required String city,
     required String state_,
     required String zip,
@@ -291,6 +293,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         lastName:    lastName,
         email:       email,
         country:     country,
+        apartment:   apartment, // ✅ NEW
         address:     address,
         city:        city,
         state:       state_,
@@ -315,13 +318,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   // ── Process Advance Order (Advance Payment) ────────────────────────
-  // ✅ orderNotes added (optional)
   Future<bool> processAdvanceOrder({
     required String firstName,
     required String lastName,
     required String email,
     required int country,
-    required String address,
+    String? apartment, // ✅ NEW: Flat/Bungalow No. + Wing combined
+    required String address, // Society/Property Name + Landmark combined
     required String city,
     required String state_,
     required String zip,
@@ -337,6 +340,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         lastName:    lastName,
         email:       email,
         country:     country,
+        apartment:   apartment, // ✅ NEW
         address:     address,
         city:        city,
         state:       state_,

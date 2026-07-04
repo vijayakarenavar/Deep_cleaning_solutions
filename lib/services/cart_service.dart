@@ -2,6 +2,15 @@
 
 import 'api_client.dart';
 
+// ✅ NEW: shared helper — backend sends amounts >= 1000 with a
+// thousands-separator comma (e.g. "6,600.00"), which double.tryParse()
+// can't handle and silently returns null -> 0. Strip commas first.
+double _parseAmount(dynamic v) {
+  if (v == null) return 0.0;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString().replaceAll(',', '')) ?? 0.0;
+}
+
 class CartService {
   final ApiClient _api = ApiClient();
 
@@ -11,9 +20,9 @@ class CartService {
     return {
       'cart_items':   data['items']    ?? [],
       'cart_count':   data['count']    ?? 0,
-      'total_amount': double.tryParse(data['subtotal']?.toString() ?? '0') ?? 0.0,
-      'discount':     double.tryParse(data['discount']?.toString() ?? '0') ?? 0.0,
-      'final_amount': double.tryParse(data['final_amount']?.toString() ?? data['subtotal']?.toString() ?? '0') ?? 0.0,
+      'total_amount': _parseAmount(data['subtotal']),                                   // ✅ CHANGED
+      'discount':     _parseAmount(data['discount']),                                   // ✅ CHANGED
+      'final_amount': _parseAmount(data['final_amount'] ?? data['subtotal']),           // ✅ CHANGED
       'coupon_code':  data['coupon_code'],
     };
   }

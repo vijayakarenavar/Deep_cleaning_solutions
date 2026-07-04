@@ -22,14 +22,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _lastNameCtrl    = TextEditingController();
   final _emailCtrl       = TextEditingController();
   final _mobileCtrl      = TextEditingController();
-  final _addressCtrl     = TextEditingController();
+
+  // ✅ CHANGED: single _addressCtrl replaced with the 4 fields the
+  // website actually has (Flat/Bungalow No., Wing, Society/Property
+  // Name, Landmark). Combined into `apartment` (flat+wing) and
+  // `address` (society+landmark) before hitting the API — see
+  // _buildApartmentAndAddress() below.
+  final _flatCtrl        = TextEditingController(); // Flat / Bungalow No. *
+  final _wingCtrl        = TextEditingController(); // Wing (optional)
+  final _societyCtrl     = TextEditingController(); // Society / Property Name *
+  final _landmarkCtrl    = TextEditingController(); // Landmark (optional)
+
   final _cityCtrl        = TextEditingController();
   final _stateCtrl       = TextEditingController();
   final _zipCtrl         = TextEditingController();
   final _couponCtrl      = TextEditingController();
   final _notesCtrl       = TextEditingController();
 
-  // ✅ Area (city_area) selected from GET /checkout/init → city_areas
+  // Area (city_area) selected from GET /checkout/init → city_areas
   // No default — user must pick a valid area id, server rejects unknown ids with 422.
   int? _selectedAreaId;
 
@@ -50,7 +60,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _emailCtrl.text     = (user['email']  ?? '').toString();
         _mobileCtrl.text    = (user['mobile'] ?? user['phone'] ?? '').toString();
       }
-      // ✅ Fetch city_areas + prefill subtotal/saved address's area
+      // Fetch city_areas + prefill subtotal/saved address's area
       ref.read(orderProvider.notifier).getCheckoutInit();
     });
   }
@@ -61,7 +71,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _mobileCtrl.dispose();
-    _addressCtrl.dispose();
+    _flatCtrl.dispose();     // ✅ NEW
+    _wingCtrl.dispose();     // ✅ NEW
+    _societyCtrl.dispose();  // ✅ NEW
+    _landmarkCtrl.dispose(); // ✅ NEW
     _cityCtrl.dispose();
     _stateCtrl.dispose();
     _zipCtrl.dispose();
@@ -70,10 +83,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
+  // ✅ NEW: combine the 4 address fields into the 2 the API expects,
+  // matching how the website's fields map onto `apartment` / `address`.
+  ({String apartment, String address}) _buildApartmentAndAddress() {
+    final apartment = [_flatCtrl.text.trim(), _wingCtrl.text.trim()]
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+    final address = [_societyCtrl.text.trim(), _landmarkCtrl.text.trim()]
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+    return (apartment: apartment, address: address);
+  }
+
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
       context: context,
-      // ✅ FIX: today should not be a bookable date — booking must start
+      // today should not be a bookable date — booking must start
       // from tomorrow onwards.
       initialDate: DateTime.now().add(const Duration(days: 1)),
       firstDate:   DateTime.now().add(const Duration(days: 1)),
@@ -149,13 +174,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       bool success = false;
 
+      // ✅ NEW: combine the 4 address fields before sending
+      final addr = _buildApartmentAndAddress();
+
       if (_isAdvancePayment) {
         success = await ref.read(orderProvider.notifier).processAdvanceOrder(
           firstName:   _firstNameCtrl.text.trim(),
           lastName:    _lastNameCtrl.text.trim(),
           email:       _emailCtrl.text.trim(),
           country:     _selectedAreaId!,
-          address:     _addressCtrl.text.trim(),
+          apartment:   addr.apartment, // ✅ NEW
+          address:     addr.address,   // ✅ CHANGED: was _addressCtrl.text.trim()
           city:        _cityCtrl.text.trim(),
           state_:      _stateCtrl.text.trim(),
           zip:         _zipCtrl.text.trim(),
@@ -170,7 +199,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           lastName:    _lastNameCtrl.text.trim(),
           email:       _emailCtrl.text.trim(),
           country:     _selectedAreaId!,
-          address:     _addressCtrl.text.trim(),
+          apartment:   addr.apartment, // ✅ NEW
+          address:     addr.address,   // ✅ CHANGED: was _addressCtrl.text.trim()
           city:        _cityCtrl.text.trim(),
           state_:      _stateCtrl.text.trim(),
           zip:         _zipCtrl.text.trim(),
@@ -234,16 +264,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
-    // ✅ FIX: summary breakdown (subtotal/commuting charge/total) should only
+    // Summary breakdown (subtotal/commuting charge/total) should only
     // reflect server values once the USER has actually picked an area from
-    // the dropdown (_selectedAreaId). Relying on orderState.selectedAreaId /
-    // grandTotal alone was showing a stale/prefilled area's charge (e.g.
-    // Baner ₹425) even when no area was chosen on screen, because
-    // getCheckoutInit() can prefill the provider from a saved address
-    // before the user interacts with the dropdown.
+    // the dropdown (_selectedAreaId).
     final hasSummary = _selectedAreaId != null &&
         (orderState.grandTotal > 0 || orderState.selectedAreaId == _selectedAreaId);
-    final displayTotal = hasSummary ? orderState.grandTotal : cartState.finalAmount;
+
+    // ✅ FIX: previously always showed orderState.grandTotal even when
+    // "Advance Payment" was selected. Now switches to advanceAmount.
+    final displayTotal = hasSummary
+        ? (_isAdvancePayment ? orderState.advanceAmount : orderState.grandTotal)
+        : cartState.finalAmount;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -285,11 +316,36 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               _SectionTitle('Service Location'),
               const SizedBox(height: 10),
 
-              // ✅ NEW: Area dropdown (city_areas from /checkout/init)
+              // Area dropdown (city_areas from /checkout/init)
               _buildAreaDropdown(orderState),
               const SizedBox(height: 10),
 
-              _buildField(_addressCtrl, 'Full Address', maxLines: 2, validator: (v) => v!.isEmpty ? 'Required' : null),
+              // ✅ CHANGED: single "Full Address" field replaced with the
+              // website's 4 fields (Flat/Bungalow No., Wing, Society/
+              // Property Name, Landmark).
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildField(
+                      _flatCtrl,
+                      'Flat / Bungalow No.',
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildField(_wingCtrl, 'Wing (optional)'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildField(
+                _societyCtrl,
+                'Society / Property Name',
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 10),
+              _buildField(_landmarkCtrl, 'Landmark (optional)'),
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -303,7 +359,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
               const SizedBox(height: 20),
 
-              // ── ✅ NEW: Order Notes (optional) ────
+              // ── Order Notes (optional) ────
               Row(
                 children: [
                   _SectionTitle('Order Notes'),
@@ -410,7 +466,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     }).toList(),
                   ),
                 ] else
-                // ✅ UPDATED: no slots for this date -> also nudge user to pick another date
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
@@ -450,7 +505,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
               const SizedBox(height: 20),
 
-              // ── ✅ NEW: Coupon Code ───────────────
+              // ── Coupon Code ───────────────
               _SectionTitle('Coupon Code'),
               const SizedBox(height: 10),
               _buildCouponSection(orderState),
@@ -476,7 +531,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 onChanged:  (v) => setState(() => _isAdvancePayment = v),
               ),
 
-              const SizedBox(height: 140),
+              const SizedBox(height: 260), // ✅ increased to fit taller bottomSheet summary
             ],
           ),
         ),
@@ -487,51 +542,89 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           color: AppColors.white,
           border: const Border(top: BorderSide(color: AppColors.border)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (hasSummary) ...[
-              _AmountRow('Subtotal', orderState.subtotal),
-              // ✅ UPDATED: "Shipping" -> "Commuting Charge"
-              if (orderState.shippingCharge > 0) _AmountRow('Commuting Charge', orderState.shippingCharge),
-              if (orderState.discount > 0)
-                _AmountRow('Discount', -orderState.discount, color: AppColors.green),
-              const Divider(height: 16),
-            ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total Amount', style: TextStyle(color: AppColors.textMuted)),
-                Text(
-                  '₹${displayTotal.toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.primary),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasSummary) ...[
+                // ✅ NEW: Product line, matches website's "PRODUCT" row
+                if (cartState.cartItems.isNotEmpty) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      (cartState.cartItems.first['name'] ??
+                          cartState.cartItems.first['service_name'] ??
+                          '').toString(),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                  if (cartState.cartItems.first['options'] is Map &&
+                      cartState.cartItems.first['options']['sqft'] != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${cartState.cartItems.first['options']['sqft']} sq.ft.',
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                ],
+                _AmountRow('Subtotal', orderState.subtotal),
+                if (orderState.discount > 0)
+                  _AmountRow('Discount', -orderState.discount, color: AppColors.green),
+                _AmountRow('Commuting Charge', orderState.shippingCharge),
+                const Divider(height: 16),
+                // ✅ NEW: both payment options shown together, like the website,
+                // with the currently-selected one highlighted.
+                _AmountRow(
+                  'Full Payment',
+                  orderState.grandTotal,
+                  bold: true,
+                  highlighted: !_isAdvancePayment,
                 ),
+                const SizedBox(height: 4),
+                _AmountRow(
+                  'Advance Payment',
+                  orderState.advanceAmount,
+                  color: AppColors.green,
+                  bold: true,
+                  highlighted: _isAdvancePayment,
+                ),
+                const Divider(height: 16),
               ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isPlacingOrder ? null : _placeOrder,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: _isPlacingOrder
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Place Order', style: TextStyle(fontWeight: FontWeight.w700)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total Amount', style: TextStyle(color: AppColors.textMuted)),
+                  Text(
+                    '₹${displayTotal.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.primary),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isPlacingOrder ? null : _placeOrder,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: _isPlacingOrder
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Place Order', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ✅ NEW: Area dropdown widget
-  // ✅ UPDATED: only show areas that actually have a rate (shipping_charge > 0)
+  // Area dropdown widget — only show areas that actually have a rate (shipping_charge > 0)
   Widget _buildAreaDropdown(OrderState orderState) {
     if (orderState.isInitLoading && orderState.cityAreas.isEmpty) {
       return const Padding(
@@ -579,7 +672,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  // ✅ NEW: Coupon apply/remove widget
+  // Coupon apply/remove widget
   Widget _buildCouponSection(OrderState orderState) {
     final applied = orderState.couponCode != null && orderState.couponCode!.isNotEmpty;
 
@@ -688,7 +781,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 }
 
-// ✅ NEW: quick-fill chip for Order Notes
+// quick-fill chip for Order Notes
 class _QuickNoteChip extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -726,25 +819,52 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ✅ NEW: small helper row for the totals breakdown
+// ✅ CHANGED: added `bold` and `highlighted` so Full Payment / Advance
+// Payment rows can be shown together with the selected one emphasized,
+// matching the website's order summary card.
 class _AmountRow extends StatelessWidget {
   final String label;
   final double amount;
   final Color? color;
-  const _AmountRow(this.label, this.amount, {this.color});
+  final bool bold;
+  final bool highlighted;
+  const _AmountRow(
+      this.label,
+      this.amount, {
+        this.color,
+        this.bold = false,
+        this.highlighted = false,
+      });
 
   @override
   Widget build(BuildContext context) {
     final sign = amount < 0 ? '-' : '';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 4, horizontal: highlighted ? 8 : 0),
+      decoration: highlighted
+          ? BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+      )
+          : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          Text(
+            label,
+            style: TextStyle(
+              color: bold ? AppColors.black : AppColors.textMuted,
+              fontSize: bold ? 13 : 12,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
+            ),
+          ),
           Text(
             '$sign₹${amount.abs().toStringAsFixed(0)}',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color ?? AppColors.black),
+            style: TextStyle(
+              fontSize: bold ? 13 : 12,
+              fontWeight: FontWeight.w700,
+              color: color ?? AppColors.black,
+            ),
           ),
         ],
       ),
