@@ -47,6 +47,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isAdvancePayment = false;
   bool _isPlacingOrder   = false;
 
+  // ✅ NEW: instead of guessing the bottom bar's height with a hardcoded
+  // spacer, we measure the ACTUAL rendered height of the bottomSheet each
+  // frame and size the body's trailing spacer to match exactly (+ a small
+  // buffer). This guarantees the last form field is never hidden behind
+  // the bottom bar, no matter how its content changes (summary row
+  // showing/hiding, text wrapping on smaller screens, etc).
+  final GlobalKey _bottomBarKey = GlobalKey();
+  double _bottomBarHeight = 160; // sensible initial guess before first measurement
+
+  void _measureBottomBar() {
+    final ctx = _bottomBarKey.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final measured = box.size.height;
+    if ((measured - _bottomBarHeight).abs() > 0.5) {
+      // Only rebuild when it actually changed, to avoid an infinite loop.
+      setState(() => _bottomBarHeight = measured);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -243,6 +264,91 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  // ✅ NEW: opens the full order-summary breakdown (cart items, subtotal,
+  // discount, shipping, both payment options) as a draggable modal instead
+  // of a permanently-visible tall bottomSheet. This is what removes the
+  // overlap with the checkout form — the persistent bottom bar is now a
+  // fixed, small height, and the detailed breakdown only appears on demand.
+  void _showOrderSummarySheet(CartState cartState, OrderState orderState) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.35,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (ctx, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Order Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      children: [
+                        if (cartState.cartItems.isNotEmpty) ...[
+                          ...cartState.cartItems.map((item) => _CartLineItem(item: item)),
+                          const SizedBox(height: 6),
+                          const Divider(height: 16),
+                        ],
+                        _AmountRow('Subtotal', orderState.subtotal),
+                        if (orderState.discount > 0)
+                          _AmountRow('Discount', -orderState.discount, color: AppColors.green),
+                        _AmountRow('Commuting Charge', orderState.shippingCharge),
+                        const Divider(height: 16),
+                        _AmountRow(
+                          'Full Payment',
+                          orderState.grandTotal,
+                          bold: true,
+                          highlighted: !_isAdvancePayment,
+                        ),
+                        const SizedBox(height: 4),
+                        _AmountRow(
+                          'Advance Payment',
+                          orderState.advanceAmount,
+                          color: AppColors.green,
+                          bold: true,
+                          highlighted: _isAdvancePayment,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartState  = ref.watch(cartProvider);
@@ -274,6 +380,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final displayTotal = hasSummary
         ? (_isAdvancePayment ? orderState.advanceAmount : orderState.grandTotal)
         : cartState.finalAmount;
+
+    // Re-measure the bottom bar after this frame paints — covers the case
+    // where `hasSummary` flips (adds/removes the "View order summary" row)
+    // or the total's digit count changes text height, keeping the spacer
+    // in the scroll body always in sync with the real bar height.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureBottomBar());
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -529,53 +641,55 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 onChanged:  (v) => setState(() => _isAdvancePayment = v),
               ),
 
-              const SizedBox(height: 320), // extra space for the taller multi-item summary sheet
+              // ✅ FIX: spacer now matches the bottom bar's REAL measured
+              // height (+16px buffer) instead of a hardcoded guess. This is
+              // what guarantees the checkout content never sits underneath
+              // the summary bottom bar, in any state.
+              SizedBox(height: _bottomBarHeight + 16),
             ],
           ),
         ),
       ),
+      // ✅ FIX: replaced the tall, content-dependent bottomSheet (up to 55%
+      // of screen height) with a compact fixed-height bar. Full breakdown
+      // (cart items, subtotal, discount, shipping, both payment rows) now
+      // lives in a draggable modal opened via "View order summary", so it
+      // never permanently overlaps the checkout form.
       bottomSheet: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
-        padding: const EdgeInsets.all(16),
+        key: _bottomBarKey, // measured in a post-frame callback below
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         decoration: BoxDecoration(
           color: AppColors.white,
           border: const Border(top: BorderSide(color: AppColors.border)),
         ),
-        child: SingleChildScrollView(
+        child: SafeArea(
+          top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (hasSummary) ...[
-                // ✅ FIX: previously only cartState.cartItems.first was
-                // shown here — addons/extra services in the cart never
-                // appeared in the summary. Now every cart item is listed.
-                if (cartState.cartItems.isNotEmpty) ...[
-                  ...cartState.cartItems.map((item) => _CartLineItem(item: item)),
-                  const SizedBox(height: 6),
-                  const Divider(height: 16),
-                ],
-                _AmountRow('Subtotal', orderState.subtotal),
-                if (orderState.discount > 0)
-                  _AmountRow('Discount', -orderState.discount, color: AppColors.green),
-                _AmountRow('Commuting Charge', orderState.shippingCharge),
-                const Divider(height: 16),
-                // Both payment options shown together, like the website,
-                // with the currently-selected one highlighted.
-                _AmountRow(
-                  'Full Payment',
-                  orderState.grandTotal,
-                  bold: true,
-                  highlighted: !_isAdvancePayment,
+                InkWell(
+                  onTap: () => _showOrderSummarySheet(cartState, orderState),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Row(
+                        children: [
+                          Icon(Icons.receipt_long, size: 15, color: AppColors.primary),
+                          SizedBox(width: 6),
+                          Text(
+                            'View order summary',
+                            style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      Icon(Icons.keyboard_arrow_up, color: AppColors.primary, size: 18),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                _AmountRow(
-                  'Advance Payment',
-                  orderState.advanceAmount,
-                  color: AppColors.green,
-                  bold: true,
-                  highlighted: _isAdvancePayment,
-                ),
-                const Divider(height: 16),
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
               ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -805,9 +919,8 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ✅ NEW: renders one cart item's name (+ sqft/qty if present) and price in
-// the summary card. Used in a loop over ALL cart items (see fix above),
-// not just the first one.
+// Renders one cart item's name (+ sqft/qty if present) and price — used
+// both in the modal summary sheet and could be reused elsewhere.
 class _CartLineItem extends StatelessWidget {
   final Map<String, dynamic> item;
   const _CartLineItem({required this.item});
