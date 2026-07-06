@@ -278,7 +278,7 @@ class _WishlistItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '₹${price.toStringAsFixed(0)}',
+                    '₹${price.toStringAsFixed(0)}/sq.ft',
                     style: const TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
