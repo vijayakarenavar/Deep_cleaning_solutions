@@ -1,6 +1,7 @@
 // lib/screens/register_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dcs_app/utils/app_colors.dart';
@@ -25,6 +26,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscurePassword         = true;
   bool _obscureConfirmPassword  = true;
   bool _didNavigateAfterRegister = false;
+
+  // ✅ FIX: Indian mobile number — exactly 10 digits, first digit 6-9
+  final RegExp _mobileRegex = RegExp(r'^[6-9]\d{9}$');
 
   @override
   void dispose() {
@@ -175,6 +179,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     const SizedBox(height: 16),
 
                     // Mobile Number — UI ठेवला, API ला पाठवत नाही
+                    // ✅ FIX: proper 10-digit Indian mobile validation —
+                    // digits-only input, max length 10, must start with 6-9.
                     const Text(
                       'Mobile Number',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
@@ -183,15 +189,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       controller: _mobileCtrl,
                       keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                       validator: (v) {
-                        if (v!.isEmpty) return 'Mobile required';
-                        if (v.length < 10) return 'Invalid mobile number';
+                        if (v == null || v.trim().isEmpty) return 'Mobile required';
+                        if (!_mobileRegex.hasMatch(v.trim())) {
+                          return 'Enter a valid 10-digit mobile number';
+                        }
                         return null;
                       },
                       decoration: _inputDecoration(
                         hint: 'Enter your mobile number',
                         icon: Icons.phone_outlined,
-                      ),
+                      ).copyWith(counterText: ''),
                     ),
                     const SizedBox(height: 16),
 

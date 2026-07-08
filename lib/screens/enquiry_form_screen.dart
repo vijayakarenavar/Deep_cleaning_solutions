@@ -38,6 +38,8 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   // ✅ simple email format check
   final RegExp _emailRegex = RegExp(r'^[\w\.\-]+@[\w\-]+\.[\w\-\.]+$');
 
+  // ✅ FIX: Car Wash service ajun launch zaलele nahi, mhणून dropdown मधून
+  // कायमचा काढून टाकला.
   final List<String> _services = [
     'Flat Cleaning',
     'Bungalow Cleaning',
@@ -46,7 +48,6 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
     'Restaurant Cleaning',
     'Shop Cleaning',
     'School Cleaning',
-    'Car Wash',
     'Deep Cleaning',
   ];
 
@@ -66,6 +67,8 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
     super.initState();
 
     // Service auto select
+    // ✅ FIX: 'Car Wash' auto-select condition काढली (dropdown मध्ये आता
+    // ती option च नाही, so मॅच झाली तरी null च rahil).
     _selectedService = widget.serviceName.contains('Flat')        ? 'Flat Cleaning'
         : widget.serviceName.contains('Bungalow')   ? 'Bungalow Cleaning'
         : widget.serviceName.contains('Office')     ? 'Office Cleaning'
@@ -73,7 +76,6 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
         : widget.serviceName.contains('Restaurant') ? 'Restaurant Cleaning'
         : widget.serviceName.contains('Shop')       ? 'Shop Cleaning'
         : widget.serviceName.contains('School')     ? 'School Cleaning'
-        : widget.serviceName.contains('Car')        ? 'Car Wash'
         : widget.serviceName.contains('Deep')       ? 'Deep Cleaning'
         : null;
 

@@ -229,13 +229,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           label: 'Wishlist',
                           onTap: () => context.push('/wishlist')),
                       _ProfileMenuItem(
-                          icon: Icons.lock_outline,
-                          label: 'Change Password',
-                          onTap: () => context.push('/change-password')), // ✅ push वापरला
-                      _ProfileMenuItem(
                           icon: Icons.privacy_tip_outlined,
                           label: 'Privacy Policy',
                           onTap: () => context.push('/privacy-policy')),
+                      _ProfileMenuItem(
+                          icon: Icons.description_outlined,
+                          label: 'Terms & Conditions',
+                          onTap: () => context.push('/terms-conditions')),
+                      _ProfileMenuItem(
+                          icon: Icons.lock_outline,
+                          label: 'Change Password',
+                          onTap: () => context.push('/change-password')),
                       _ProfileMenuItem(
                           icon: Icons.logout,
                           label: 'Logout',

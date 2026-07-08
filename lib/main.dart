@@ -6,6 +6,7 @@ import 'package:dcs_app/screens/contact_screen.dart';
 import 'package:dcs_app/screens/edit_profile_screen.dart';
 import 'package:dcs_app/screens/forgot_password_screen.dart';
 import 'package:dcs_app/screens/privacy_policy_screen.dart';
+import 'package:dcs_app/screens/terms_conditions_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -157,6 +158,10 @@ class _DCSAppState extends ConsumerState<DCSApp> {
         GoRoute(
           path: '/privacy-policy',
           builder: (context, state) => const PrivacyPolicyScreen(),
+        ),
+        GoRoute(
+          path: '/terms-conditions',
+          builder: (context, state) => const TermsConditionsScreen(),
         ),
         GoRoute(
           path: '/forgot-password',

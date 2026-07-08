@@ -3,20 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:dcs_app/utils/app_colors.dart';
 
-class PrivacyPolicyScreen extends StatefulWidget {
-  const PrivacyPolicyScreen({super.key});
+class TermsConditionsScreen extends StatefulWidget {
+  const TermsConditionsScreen({super.key});
 
   @override
-  State<PrivacyPolicyScreen> createState() => _PrivacyPolicyScreenState();
+  State<TermsConditionsScreen> createState() => _TermsConditionsScreenState();
 }
 
-class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
   Timer? _hideTimer1;
   Timer? _hideTimer2;
 
-  static const String _policyUrl = 'https://deepcleaningsolutions.in/policy';
+  static const String _termsUrl = 'https://deepcleaningsolutions.in/terms';
 
   // ✅ Header, footer, hamburger menu, search icon, cart icon, WhatsApp button
   // ani chat widget — sagळे hide karणारा JS. Website cha navigation la touch
@@ -127,14 +127,14 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
           },
           onNavigationRequest: (request) {
             // ✅ Fakt policy page cha URL allow, baki sagळे links block
-            if (request.url.startsWith(_policyUrl)) {
+            if (request.url.startsWith(_termsUrl)) {
               return NavigationDecision.navigate;
             }
             return NavigationDecision.prevent;
           },
         ),
       )
-      ..loadRequest(Uri.parse(_policyUrl));
+      ..loadRequest(Uri.parse(_termsUrl));
   }
 
   @override
@@ -151,7 +151,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        title: const Text('Privacy Policy'),
+        title: const Text('Terms & Conditions'),
         elevation: 0,
       ),
       body: Stack(

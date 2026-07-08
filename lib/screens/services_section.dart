@@ -63,9 +63,36 @@ class ServiceCard extends StatelessWidget {
   final Map<String, dynamic> data;
   const ServiceCard({super.key, required this.data});
 
+  // ✅ Car Wash service ajun launch zaलele nahi, mhणून "Coming Soon" dialog
+  // dakhवायचा — enquiry form open honar nahi.
+  void _showComingSoon(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          'Coming Soon',
+          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
+        ),
+        content: const Text(
+          'Car Wash service will be available soon.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _navigateMain(BuildContext context) {
     final name = data['name'] as String;
-    if (name == 'Flats') {
+    if (name == 'Car Wash') {
+      _showComingSoon(context);
+    } else if (name == 'Flats') {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => const FlatCategoryScreen(),
       ));
@@ -124,7 +151,9 @@ class ServiceCard extends StatelessWidget {
                     child: _OverlayBtn(
                       icon: Icons.shopping_bag_outlined,
                       onTap: () {
-                        if (name == 'Flats') {
+                        if (name == 'Car Wash') {
+                          _showComingSoon(context);
+                        } else if (name == 'Flats') {
                           Navigator.push(context, MaterialPageRoute(
                             builder: (_) => const FlatCategoryScreen(),
                           ));
