@@ -398,255 +398,270 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          // Re-fetches city_areas, time slots (if a date is picked), and
+          // cart/subtotal state — same data the screen loads on initState.
+          await ref.read(orderProvider.notifier).getCheckoutInit();
+          if (_selectedDate != null) {
+            await ref.read(orderProvider.notifier).getTimeSlots(date: _selectedDate!);
+          }
+        },
+        child: SingleChildScrollView(
+          // AlwaysScrollableScrollPhysics ensures pull-to-refresh works
+          // even when content is shorter than the screen (not enough to
+          // scroll on its own).
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
 
-              // ── Personal Details ─────────────────
-              _SectionTitle('Personal Details'),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(child: _buildField(_firstNameCtrl, 'First Name', validator: (v) => v!.isEmpty ? 'Required' : null)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _buildField(_lastNameCtrl, 'Last Name',   validator: (v) => v!.isEmpty ? 'Required' : null)),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _buildField(_emailCtrl,  'Email',        keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Required' : null),
-              const SizedBox(height: 10),
-              _buildField(_mobileCtrl, 'Mobile Number', keyboardType: TextInputType.phone,       validator: (v) => v!.length != 10 ? '10 digits required' : null),
-
-              const SizedBox(height: 20),
-
-              // ── Service Location ─────────────────
-              _SectionTitle('Service Location'),
-              const SizedBox(height: 10),
-
-              // Area dropdown (city_areas from /checkout/init)
-              _buildAreaDropdown(orderState),
-              const SizedBox(height: 10),
-
-              // Website's 4 fields (Flat/Bungalow No., Wing, Society/
-              // Property Name, Landmark) instead of a single "Full Address".
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildField(
-                      _flatCtrl,
-                      'Flat / Bungalow No.',
-                      validator: (v) => v!.isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildField(_wingCtrl, 'Wing (optional)'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _buildField(
-                _societyCtrl,
-                'Society / Property Name',
-                validator: (v) => v!.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 10),
-              _buildField(_landmarkCtrl, 'Landmark (optional)'),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(child: _buildField(_cityCtrl,  'City',  validator: (v) => v!.isEmpty ? 'Required' : null)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _buildField(_stateCtrl, 'State', validator: (v) => v!.isEmpty ? 'Required' : null)),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _buildField(_zipCtrl, 'PIN Code', keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null),
-
-              const SizedBox(height: 20),
-
-              // ── Order Notes (optional) ────
-              Row(
-                children: [
-                  _SectionTitle('Order Notes'),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text('optional', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.w600)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                maxLength: 200,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Notes about your order, e.g. special notes for delivery.',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                  filled: true,
-                  fillColor: AppColors.white,
-                  contentPadding: const EdgeInsets.all(14),
-                  border:        OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                // ── Personal Details ─────────────────
+                _SectionTitle('Personal Details'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildField(_firstNameCtrl, 'First Name', validator: (v) => v!.isEmpty ? 'Required' : null)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildField(_lastNameCtrl, 'Last Name',   validator: (v) => v!.isEmpty ? 'Required' : null)),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _QuickNoteChip(label: 'Specific areas to focus on', controller: _notesCtrl),
-                  _QuickNoteChip(label: 'Call on arrival', controller: _notesCtrl),
-                ],
-              ),
+                const SizedBox(height: 10),
+                _buildField(_emailCtrl,  'Email',        keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Required' : null),
+                const SizedBox(height: 10),
+                _buildField(_mobileCtrl, 'Mobile Number', keyboardType: TextInputType.phone,       validator: (v) => v!.length != 10 ? '10 digits required' : null),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // ── Booking Date ─────────────────────
-              _SectionTitle('Booking Schedule'),
-              const SizedBox(height: 10),
-              GestureDetector(
-                onTap: _selectDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today, color: AppColors.primary, size: 18),
-                      const SizedBox(width: 10),
-                      Text(
-                        _selectedDate ?? 'Select Booking Date',
-                        style: TextStyle(
-                          color: _selectedDate != null ? AppColors.black : AppColors.textMuted,
-                          fontSize: 13,
-                        ),
+                // ── Service Location ─────────────────
+                _SectionTitle('Service Location'),
+                const SizedBox(height: 10),
+
+                // Area dropdown (city_areas from /checkout/init)
+                _buildAreaDropdown(orderState),
+                const SizedBox(height: 10),
+
+                // Website's 4 fields (Flat/Bungalow No., Wing, Society/
+                // Property Name, Landmark) instead of a single "Full Address".
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildField(
+                        _flatCtrl,
+                        'Flat / Bungalow No.',
+                        validator: (v) => v!.isEmpty ? 'Required' : null,
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildField(_wingCtrl, 'Wing (optional)'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildField(
+                  _societyCtrl,
+                  'Society / Property Name',
+                  validator: (v) => v!.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 10),
+                _buildField(_landmarkCtrl, 'Landmark (optional)'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _buildField(_cityCtrl,  'City',  validator: (v) => v!.isEmpty ? 'Required' : null)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _buildField(_stateCtrl, 'State', validator: (v) => v!.isEmpty ? 'Required' : null)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildField(_zipCtrl, 'PIN Code', keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null),
+
+                const SizedBox(height: 20),
+
+                // ── Order Notes (optional) ────
+                Row(
+                  children: [
+                    _SectionTitle('Order Notes'),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('optional', style: TextStyle(fontSize: 10, color: AppColors.secondary, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  maxLength: 200,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Notes about your order, e.g. special notes for delivery.',
+                    hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                    filled: true,
+                    fillColor: AppColors.white,
+                    contentPadding: const EdgeInsets.all(14),
+                    border:        OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _QuickNoteChip(label: 'Specific areas to focus on', controller: _notesCtrl),
+                    _QuickNoteChip(label: 'Call on arrival', controller: _notesCtrl),
+                  ],
+                ),
 
-              // ── Time Slots ───────────────────────
-              if (_selectedDate != null) ...[
-                const SizedBox(height: 12),
-                if (orderState.isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (orderState.timeSlots.isNotEmpty) ...[
-                  const Text('Select Time Slot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: orderState.timeSlots.entries.map((entry) {
-                      final key   = entry.key;
-                      final label = entry.value is Map ? (entry.value['label'] ?? key) : key;
-                      final time  = entry.value is Map ? (entry.value['time'] ?? key) : key;
-                      final isSelected = _selectedTime == key;
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedTime = key),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primary : AppColors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(label.toString(), style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textMuted)),
-                              Text(time.toString(),  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.black)),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ] else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
+                const SizedBox(height: 20),
+
+                // ── Booking Date ─────────────────────
+                _SectionTitle('Booking Schedule'),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _selectDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      color: AppColors.secondary.withValues(alpha: 0.08),
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, color: AppColors.secondary, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                'No time slots available for this date',
-                                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Please select another date',
-                                style: TextStyle(color: AppColors.secondary, fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                            ],
+                        const Icon(Icons.calendar_today, color: AppColors.primary, size: 18),
+                        const SizedBox(width: 10),
+                        Text(
+                          _selectedDate ?? 'Select Booking Date',
+                          style: TextStyle(
+                            color: _selectedDate != null ? AppColors.black : AppColors.textMuted,
+                            fontSize: 13,
                           ),
-                        ),
-                        TextButton(
-                          onPressed: _selectDate,
-                          child: const Text('Change', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),
                   ),
+                ),
+
+                // ── Time Slots ───────────────────────
+                if (_selectedDate != null) ...[
+                  const SizedBox(height: 12),
+                  if (orderState.isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (orderState.timeSlots.isNotEmpty) ...[
+                    const Text('Select Time Slot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: orderState.timeSlots.entries.map((entry) {
+                        final key   = entry.key;
+                        final label = entry.value is Map ? (entry.value['label'] ?? key) : key;
+                        final time  = entry.value is Map ? (entry.value['time'] ?? key) : key;
+                        final isSelected = _selectedTime == key;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedTime = key),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppColors.primary : AppColors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(label.toString(), style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textMuted)),
+                                Text(time.toString(),  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.black)),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ] else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, color: AppColors.secondary, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'No time slots available for this date',
+                                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Please select another date',
+                                  style: TextStyle(color: AppColors.secondary, fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _selectDate,
+                            child: const Text('Change', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // ── Coupon Code ───────────────
+                _SectionTitle('Coupon Code'),
+                const SizedBox(height: 10),
+                _buildCouponSection(orderState),
+
+                const SizedBox(height: 20),
+
+                // ── Payment Type ─────────────────────
+                _SectionTitle('Payment Type'),
+                const SizedBox(height: 10),
+                _PaymentOption(
+                  label:      'Full Payment',
+                  subtitle:   'Pay complete amount now',
+                  value:      false,
+                  groupValue: _isAdvancePayment,
+                  onChanged:  (v) => setState(() => _isAdvancePayment = v),
+                ),
+                const SizedBox(height: 8),
+                _PaymentOption(
+                  label:      'Advance Payment',
+                  subtitle:   'Pay 10% advance, rest on service day',
+                  value:      true,
+                  groupValue: _isAdvancePayment,
+                  onChanged:  (v) => setState(() => _isAdvancePayment = v),
+                ),
+
+                // ✅ FIX: spacer now matches the bottom bar's REAL measured
+                // height (+16px buffer) instead of a hardcoded guess. This is
+                // what guarantees the checkout content never sits underneath
+                // the summary bottom bar, in any state.
+                SizedBox(height: _bottomBarHeight + 16),
               ],
-
-              const SizedBox(height: 20),
-
-              // ── Coupon Code ───────────────
-              _SectionTitle('Coupon Code'),
-              const SizedBox(height: 10),
-              _buildCouponSection(orderState),
-
-              const SizedBox(height: 20),
-
-              // ── Payment Type ─────────────────────
-              _SectionTitle('Payment Type'),
-              const SizedBox(height: 10),
-              _PaymentOption(
-                label:      'Full Payment',
-                subtitle:   'Pay complete amount now',
-                value:      false,
-                groupValue: _isAdvancePayment,
-                onChanged:  (v) => setState(() => _isAdvancePayment = v),
-              ),
-              const SizedBox(height: 8),
-              _PaymentOption(
-                label:      'Advance Payment',
-                subtitle:   'Pay 10% advance, rest on service day',
-                value:      true,
-                groupValue: _isAdvancePayment,
-                onChanged:  (v) => setState(() => _isAdvancePayment = v),
-              ),
-
-              // ✅ FIX: spacer now matches the bottom bar's REAL measured
-              // height (+16px buffer) instead of a hardcoded guess. This is
-              // what guarantees the checkout content never sits underneath
-              // the summary bottom bar, in any state.
-              SizedBox(height: _bottomBarHeight + 16),
-            ],
+            ),
           ),
         ),
       ),

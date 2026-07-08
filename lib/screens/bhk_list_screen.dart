@@ -36,14 +36,18 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      if (widget.type == 'Furnished') {
-        ref.read(productProvider.notifier).getFurnishedFlats();
-      } else {
-        ref.read(productProvider.notifier).getUnfurnishedFlats();
-      }
-      ref.read(wishlistProvider.notifier).getWishlist();
-    });
+    Future.microtask(_loadData);
+  }
+
+  // ✅ NEW: fetch logic काढून वेगळ्या method मध्ये टाकली — initState आणि
+  // pull-to-refresh दोन्ही हीच वापरतात, code duplicate नाही.
+  Future<void> _loadData() async {
+    if (widget.type == 'Furnished') {
+      await ref.read(productProvider.notifier).getFurnishedFlats();
+    } else {
+      await ref.read(productProvider.notifier).getUnfurnishedFlats();
+    }
+    await ref.read(wishlistProvider.notifier).getWishlist();
   }
 
   // ✅ CHANGED: आता ServiceCatalog मधून services घेतो
@@ -168,149 +172,158 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
           ? const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       )
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _bhkList.length,
-              itemBuilder: (_, i) {
-                final bhkName  = _bhkList[i]['name'] as String;
-                final fullName = '$bhkName ${widget.type} Homes';
+      // ✅ NEW: pull-to-refresh added — top वरून खाली ओढल्यावर _loadData()
+      // (furnished/unfurnished flats + wishlist) परत fetch होतो.
+          : RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          // content screen भरण्याइतकं नसेल तरीही pull-to-refresh काम
+          // करावं म्हणून AlwaysScrollableScrollPhysics आवश्यक आहे.
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _bhkList.length,
+                itemBuilder: (_, i) {
+                  final bhkName  = _bhkList[i]['name'] as String;
+                  final fullName = '$bhkName ${widget.type} Homes';
 
-                final productId = _getProductIdFromList(products, i);
-                final slug      = _getSlugFromList(products, i);
-                final sqftMin   = _getSqftMinFromList(products, i);
-                final sqftMax   = _getSqftMaxFromList(products, i);
+                  final productId = _getProductIdFromList(products, i);
+                  final slug      = _getSlugFromList(products, i);
+                  final sqftMin   = _getSqftMinFromList(products, i);
+                  final sqftMax   = _getSqftMaxFromList(products, i);
 
-                final inWishlist = productId != null
-                    ? ref.watch(isInWishlistProvider(productId))
-                    : false;
+                  final inWishlist = productId != null
+                      ? ref.watch(isInWishlistProvider(productId))
+                      : false;
 
-                return GestureDetector(
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => ServiceDetailSheet(
-                      title:     fullName,
-                      services:  _getServices(bhkName),
-                      productId: productId,
-                      slug:      slug,
-                      sqftMin:   sqftMin,
-                      sqftMax:   sqftMax,
+                  return GestureDetector(
+                    onTap: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => ServiceDetailSheet(
+                        title:     fullName,
+                        services:  _getServices(bhkName),
+                        productId: productId,
+                        slug:      slug,
+                        sqftMin:   sqftMin,
+                        sqftMax:   sqftMax,
+                      ),
                     ),
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 18),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          children: [
-                            AppNetworkImage(
-                              url: _getImageUrl(i),
-                              width: double.infinity,
-                              height: R.wp(context, 45),
-                              fit: BoxFit.cover,
-                            ),
-                            Positioned(
-                              bottom: 10, left: 10,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  bhkName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 8, right: 8,
-                              child: GestureDetector(
-                                onTap: () {
-                                  if (productId != null) _onWishlistTap(productId);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.12),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    inWishlist
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: inWishlist
-                                        ? Colors.red
-                                        : AppColors.textMuted,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Stack(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  fullName,
-                                  style: TextStyle(
-                                    fontSize: R.sp(context, 15),
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.black,
+                              AppNetworkImage(
+                                url: _getImageUrl(i),
+                                width: double.infinity,
+                                height: R.wp(context, 45),
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                bottom: 10, left: 10,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    bhkName,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),
-                              Row(
-                                children: List.generate(
-                                  5, (_) => const Icon(Icons.star, color: AppColors.star, size: 14),
+                              Positioned(
+                                top: 8, right: 8,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (productId != null) _onWishlistTap(productId);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.12),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      inWishlist
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: inWishlist
+                                          ? Colors.red
+                                          : AppColors.textMuted,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    fullName,
+                                    style: TextStyle(
+                                      fontSize: R.sp(context, 15),
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.black,
+                                    ),
+                                  ),
+                                ),
+                                Row(
+                                  children: List.generate(
+                                    5, (_) => const Icon(Icons.star, color: AppColors.star, size: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-          ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );

@@ -129,114 +129,127 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       drawer: const SRGDrawer(),
-      body: CustomScrollView(
-        slivers: [
-          const SRGSliverAppBar(),
-          SliverList(
-            delegate: SliverChildListDelegate([
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primary, Color(0xFF3A1F6E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+      // ✅ NEW: pull-to-refresh — top वरून खाली ओढल्यावर getProfile() परत
+      // call होतो, त्यामुळे नाव/email/इतर profile fields ताजे होतात.
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () => ref.read(authProvider.notifier).getProfile(),
+        child: CustomScrollView(
+          // CustomScrollView मध्ये सुद्धा content screen भरण्याइतकं नसेल
+          // तरी pull-to-refresh काम करावं म्हणून हे आवश्यक आहे.
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            const SRGSliverAppBar(),
+            SliverList(
+              delegate: SliverChildListDelegate([
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, Color(0xFF3A1F6E)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.4), width: 2),
-                        color: Colors.white.withValues(alpha: 0.15),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.4), width: 2),
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                        child: const Icon(Icons.person,
+                            color: Colors.white, size: 44),
                       ),
-                      child: const Icon(Icons.person,
-                          color: Colors.white, size: 44),
-                    ),
-                    const SizedBox(height: 14),
-                    authState.isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                      'Welcome back!\n$userName',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: R.sp(context, 22),
-                        fontWeight: FontWeight.w800,
-                        height: 1.3,
-                      ),
-                    ),
-                    if (userEmail.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        userEmail,
+                      const SizedBox(height: 14),
+                      authState.isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                        'Welcome back!\n$userName',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: R.sp(context, 12),
+                          color: Colors.white,
+                          fontSize: R.sp(context, 22),
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                        ),
+                      ),
+                      if (userEmail.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          userEmail,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: R.sp(context, 12),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Manage your account and track your cleaning services',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.secondary,
+                          fontSize: R.sp(context, 13),
+                          height: 1.4,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Text(
-                      'Manage your account and track your cleaning services',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.secondary,
-                        fontSize: R.sp(context, 13),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // ✅ Orders Stats section काढलं — Orders आधीच स्वतंत्र tab मध्ये आहे
+                // ✅ Orders Stats section काढलं — Orders आधीच स्वतंत्र tab मध्ये आहे
 
-              // Menu Items
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10)
-                  ],
+                // Menu Items
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10)
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _ProfileMenuItem(
+                          icon: Icons.person_outline,
+                          label: 'Edit Profile',
+                          onTap: () => context.push('/edit-profile')),
+                      _ProfileMenuItem(
+                          icon: Icons.favorite_outline,
+                          label: 'Wishlist',
+                          onTap: () => context.push('/wishlist')),
+                      _ProfileMenuItem(
+                          icon: Icons.lock_outline,
+                          label: 'Change Password',
+                          onTap: () => context.push('/change-password')), // ✅ push वापरला
+                      _ProfileMenuItem(
+                          icon: Icons.privacy_tip_outlined,
+                          label: 'Privacy Policy',
+                          onTap: () => context.push('/privacy-policy')),
+                      _ProfileMenuItem(
+                          icon: Icons.logout,
+                          label: 'Logout',
+                          isRed: true,
+                          isLast: true,
+                          onTap: _logout),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    _ProfileMenuItem(
-                        icon: Icons.person_outline,
-                        label: 'Edit Profile',
-                        onTap: () => context.push('/edit-profile')),
-                    _ProfileMenuItem(
-                        icon: Icons.favorite_outline,
-                        label: 'Wishlist',
-                        onTap: () => context.push('/wishlist')),
-                    _ProfileMenuItem(
-                        icon: Icons.lock_outline,
-                        label: 'Change Password',
-                        onTap: () => context.push('/change-password')), // ✅ push वापरला
-                    _ProfileMenuItem(
-                        icon: Icons.logout,
-                        label: 'Logout',
-                        isRed: true,
-                        isLast: true,
-                        onTap: _logout),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-            ]),
-          ),
-        ],
+                const SizedBox(height: 24),
+              ]),
+            ),
+          ],
+        ),
       ),
     );
   }

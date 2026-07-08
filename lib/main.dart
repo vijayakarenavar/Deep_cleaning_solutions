@@ -5,6 +5,7 @@ import 'package:dcs_app/screens/change_password_screen.dart';
 import 'package:dcs_app/screens/contact_screen.dart';
 import 'package:dcs_app/screens/edit_profile_screen.dart';
 import 'package:dcs_app/screens/forgot_password_screen.dart';
+import 'package:dcs_app/screens/privacy_policy_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -152,6 +153,10 @@ class _DCSAppState extends ConsumerState<DCSApp> {
         GoRoute(
           path: '/change-password',
           builder: (context, state) => const ChangePasswordScreen(),
+        ),
+        GoRoute(
+          path: '/privacy-policy',
+          builder: (context, state) => const PrivacyPolicyScreen(),
         ),
         GoRoute(
           path: '/forgot-password',

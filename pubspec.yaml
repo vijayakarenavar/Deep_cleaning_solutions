@@ -21,6 +21,7 @@ dependencies:
   uuid: ^4.3.3              # ✅ नवीन — Guest ID UUID साठी
   font_awesome_flutter: ^10.7.0
   flutter_secure_storage: ^10.3.1
+  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
