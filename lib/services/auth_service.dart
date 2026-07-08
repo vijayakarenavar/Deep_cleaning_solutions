@@ -57,12 +57,21 @@ class AuthService {
   }
 
   // ✅ Get Profile
+  // ✅ FIX: API cha actual response shape { status, data: {id, name, email, phone} }
+  // ahe — 'user' navाची wrapper key नahi (login/register cha response madhe
+  // asते, pan profile cha response madhe नahi). auth_provider.dart मध्ये
+  // `response['user']` वापरून user data extract केला जातो, mhणून इथे तोच
+  // shape (`{'user': {...}}`) return karणे गरजेचे — नाहीतर app restart
+  // झाल्यावर (फक्त getProfile() call होतो, login नाही) user data null येतो.
   Future<Map<String, dynamic>> getProfile() async {
     final response = await _api.get('/auth/profile');
-    return response.data;
+    final data = response.data['data'] ?? response.data;
+    return {'user': data};
   }
 
   // ✅ Update Profile — API report uses 'phone' field
+  // ✅ FIX: getProfile() सारखाच issue — API cha response direct data
+  // object देतो, 'user' wrapper शिवाय. Same normalization apply केली.
   Future<Map<String, dynamic>> updateProfile({
     required String name,
     required String email,
@@ -76,7 +85,8 @@ class AuthService {
         'phone': phone,
       },
     );
-    return response.data;
+    final data = response.data['data'] ?? response.data;
+    return {'user': data};
   }
 
   // ✅ FIX: confirm_password field add केला

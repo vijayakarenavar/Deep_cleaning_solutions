@@ -52,12 +52,25 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+  // ✅ FIX: OrdersScreen हा MainShell मध्ये IndexedStack चा भाग असल्यामुळे
+  // app start होताच widget build/initState होतो — त्या क्षणी authProvider
+  // चा async token-check (_checkLoginStatus) अजून पूर्ण झालेला नसतो, मग
+  // isLoggedIn false असतो आणि getOrders() कधीच call होत नाही. नंतर auth
+  // state खरंच logged-in झाला तरी initState परत चालत नाही (widget आधीच
+  // alive आहे), त्यामुळे orders कायम रिकामे राहतात.
+  // हा flag build() मध्ये ref.watch सोबत वापरून — auth state जेव्हा
+  // प्रत्यक्षात logged-in होईल तेव्हा (मग तो app-restart नंतर उशिरा का
+  // असेना) एकदाच orders fetch करतो. profile_screen.dart मधल्या
+  // _profileLoaded fix सारखाच pattern.
+  bool _ordersLoaded = false;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
       final authState = ref.read(authProvider);
-      if (authState.isLoggedIn) {        // ✅ Only fetch orders if logged in
+      if (authState.isLoggedIn) {
+        _ordersLoaded = true;
         ref.read(orderProvider.notifier).getOrders();
       }
     });
@@ -67,6 +80,22 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final orderState = ref.watch(orderProvider);
+
+    // ✅ FIX: auth state initState नंतर (async check पूर्ण होऊन) logged-in
+    // झाला की orders एकदा fetch कर — फक्त एकदाच, re-login/logout नंतर परत
+    // ProfileScreen नव्याने mount होईल तेव्हा flag रीसेट होतो.
+    if (authState.isLoggedIn && !_ordersLoaded) {
+      _ordersLoaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ref.read(authProvider).isLoggedIn) {
+          ref.read(orderProvider.notifier).getOrders();
+        }
+      });
+    }
+
+    if (!authState.isLoggedIn) {
+      _ordersLoaded = false;
+    }
 
     return Scaffold(
       backgroundColor: AppColors.surface,
