@@ -164,50 +164,87 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
               ),
 
               // Header
+              // ✅ RESPONSIVE FIX: LayoutBuilder ने narrow screens (≈<340dp)
+              // ओळखून "ADD TO CART" बटण compact/icon-only करतो, त्यामुळे title +
+              // बटण + close icon कधीही overflow होत नाहीत.
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.title,
-                        style: TextStyle(
-                          fontSize: R.sp(context, 16),
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.black,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 340;
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            style: TextStyle(
+                              fontSize: R.sp(context, 16),
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.black,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _addToCart,
-                      icon: _isLoading
-                          ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+                        const SizedBox(width: 8),
+                        isNarrow
+                            ? ElevatedButton(
+                          onPressed: _isLoading ? null : _addToCart,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.secondary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.all(10),
+                            shape: const CircleBorder(),
+                            minimumSize: Size.zero,
+                            elevation: 0,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Icon(Icons.shopping_cart, size: 16),
+                        )
+                            : ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _addToCart,
+                          icon: _isLoading
+                              ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Icon(Icons.shopping_cart, size: 14),
+                          label: Text(
+                            'ADD TO CART',
+                            style: TextStyle(
+                              fontSize: R.sp(context, 11),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.secondary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            elevation: 0,
+                          ),
                         ),
-                      )
-                          : const Icon(Icons.shopping_cart, size: 14),
-                      label: const Text(
-                        'ADD TO CART',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                        elevation: 0,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.close, color: AppColors.textMuted, size: 22),
-                    ),
-                  ],
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: const Icon(Icons.close, color: AppColors.textMuted, size: 22),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
 
@@ -225,12 +262,15 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                     children: [
                       const Icon(Icons.shopping_cart, size: 14, color: AppColors.primary),
                       const SizedBox(width: 6),
-                      Text(
-                        '${cartState.cartCount} item(s) in cart',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          '${cartState.cartCount} item(s) in cart',
+                          style: TextStyle(
+                            fontSize: R.sp(context, 12),
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -247,15 +287,23 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                   children: [
                     // Sq.ft input
                     RichText(
-                      text: const TextSpan(
+                      text: TextSpan(
                         children: [
                           TextSpan(
                             text: 'How much sq.ft. is your property? ',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
+                            style: TextStyle(
+                              fontSize: R.sp(context, 13),
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.black,
+                            ),
                           ),
                           TextSpan(
                             text: '*',
-                            style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.w700, fontSize: 13),
+                            style: TextStyle(
+                              color: AppColors.secondary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: R.sp(context, 13),
+                            ),
                           ),
                         ],
                       ),
@@ -264,9 +312,10 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                     TextFormField(
                       controller: _sqftCtrl,
                       keyboardType: TextInputType.number,
+                      style: TextStyle(fontSize: R.sp(context, 13)),
                       decoration: InputDecoration(
                         hintText: _sqftHint,
-                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        hintStyle: TextStyle(color: AppColors.textMuted, fontSize: R.sp(context, 13)),
                         filled: true,
                         fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -294,17 +343,20 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                       onChanged: (v) => setState(() => _removeCover = v!),
                     ),
 
-                    // ✅ CHANGED: services empty असेल (उदा. wishlist item BHK
-                    // pattern शी match झाला नाही) तर हा संपूर्ण section
-                    // (Divider + header + list + Divider) पूर्णपणे लपतो
+                    // services empty असेल (उदा. wishlist item BHK pattern शी
+                    // match झाला नाही) तर हा संपूर्ण section पूर्णपणे लपतो
                     if (widget.services.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       const Divider(color: AppColors.border),
                       const SizedBox(height: 8),
 
-                      const Text(
+                      Text(
                         'Services Included:',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.black),
+                        style: TextStyle(
+                          fontSize: R.sp(context, 15),
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.black,
+                        ),
                       ),
                       const SizedBox(height: 12),
 
@@ -315,11 +367,19 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                             children: [
                               TextSpan(
                                 text: '${s['title']} : ',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.black),
+                                style: TextStyle(
+                                  fontSize: R.sp(context, 13),
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.black,
+                                ),
                               ),
                               TextSpan(
                                 text: s['desc'],
-                                style: const TextStyle(fontSize: 13, color: AppColors.textMuted, height: 1.5),
+                                style: TextStyle(
+                                  fontSize: R.sp(context, 13),
+                                  color: AppColors.textMuted,
+                                  height: 1.5,
+                                ),
                               ),
                             ],
                           ),
@@ -347,9 +407,13 @@ class _ServiceDetailSheetState extends ConsumerState<ServiceDetailSheet> {
                           ),
                         )
                             : const Icon(Icons.shopping_cart, size: 16),
-                        label: const Text(
+                        label: Text(
                           'ADD TO CART',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                          style: TextStyle(
+                            fontSize: R.sp(context, 13),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.secondary,
@@ -404,7 +468,7 @@ class _CheckItem extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: AppColors.black),
+              style: TextStyle(fontSize: R.sp(context, 13), color: AppColors.black),
             ),
           ),
         ),

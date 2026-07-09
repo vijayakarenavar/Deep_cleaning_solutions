@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
 import 'cart_provider.dart'; // ✅ NEW: needed to re-sync cart after auth changes
+import 'wishlist_provider.dart'; // ✅ FIX: needed to clear wishlist on logout
 
 // ── Auth State ────────────────────────────────────────────────────────
 class AuthState {
@@ -119,6 +120,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // खऱ्या session शी sync कर, नाहीतर checkout वर stale items +
       // ₹0 totals दिसतात (server cart रिकामा असल्यामुळे).
       await _ref.read(cartProvider.notifier).getCart();
+      // ✅ FIX: नवीन user login झाल्यावर त्याचा स्वतःचा wishlist लोड कर —
+      // आधीच्या (जर कुणी logout न करता दुसरा user login केला तर) किंवा
+      // guest state चा stale wishlist data राहू नये.
+      await _ref.read(wishlistProvider.notifier).getWishlist();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -135,6 +140,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // ✅ NEW: token हटला — आता guest-id सोबत cart परत fetch कर,
       // जेणेकरून UI मध्ये मागच्या logged-in session चा cart राहणार नाही.
       await _ref.read(cartProvider.notifier).getCart();
+      // ✅ FIX: wishlist हे wishlist API नुसार पूर्णपणे logged-in-user-only
+      // ahे (guest ला wishlist नसतो) — logout झाल्यावर आधीच्या user चा
+      // wishlist data (heart icons + count) local state मधून clear करणं
+      // गरजेचं, नाहीतर तो तसाच UI वर दिसत राहतो जोपर्यंत कुणी परत login
+      // करून खरा (कदाचित रिकामा) wishlist fetch करत नाही.
+      await _ref.read(wishlistProvider.notifier).clearWishlist();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
