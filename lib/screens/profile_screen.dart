@@ -241,6 +241,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           label: 'Change Password',
                           onTap: () => context.push('/change-password')),
                       _ProfileMenuItem(
+                          icon: Icons.lock_outline,
+                          label: 'Delete Account',
+                          onTap: () => context.push('')),
+                      _ProfileMenuItem(
                           icon: Icons.logout,
                           label: 'Logout',
                           isRed: true,

@@ -43,11 +43,7 @@ class ApiClient {
             final prefs = await SharedPreferences.getInstance();
             final guestId = prefs.getString('guest_id')
                 ?? await _createGuestId(prefs);
-
-            // 🔴 TEMP DEBUG — काम झाल्यावर ही ओळ काढून टाक
-            // eslint-ignore
-            // ignore: avoid_print
-            print('DEBUG GUEST ID: $guestId  |  PATH: ${options.path}');
+            
 
             options.headers['X-Guest-Id'] = guestId;
           }

@@ -103,10 +103,10 @@ class _DCSAppState extends ConsumerState<DCSApp> {
           return '/';
         }
 
-        // ✅ या pages साठी login required
-        if (!loggedIn && location == '/checkout') {
-          return '/login';
-        }
+        // // ✅ या pages साठी login required
+        // if (!loggedIn && location == '/checkout') {
+        //   return '/login';
+        // }
         if (!loggedIn && location == '/orders') {
           return '/login';
         }
