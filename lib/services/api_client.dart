@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,7 +44,7 @@ class ApiClient {
             final prefs = await SharedPreferences.getInstance();
             final guestId = prefs.getString('guest_id')
                 ?? await _createGuestId(prefs);
-            
+
 
             options.headers['X-Guest-Id'] = guestId;
           }
@@ -55,10 +56,17 @@ class ApiClient {
         },
 
         onError: (error, handler) async {
-          // ✅ Timeout → 1 retry
-          if (error.type == DioExceptionType.connectionTimeout ||
-              error.type == DioExceptionType.receiveTimeout    ||
-              error.type == DioExceptionType.sendTimeout) {
+          // ✅ Timeout → 1 retry — फक्त GET सारख्या idempotent methods साठी.
+          //    POST/PUT/DELETE वर retry केल्यास duplicate order/booking
+          //    तयार होण्याचा risk असतो (उदा. checkout वेळी timeout आला
+          //    आणि backend ला request आधीच मिळाली असेल, तर retry मुळे
+          //    दुसरी order तयार होऊ शकते). त्यामुळे फक्त GET वर retry.
+          final isIdempotent = error.requestOptions.method == 'GET';
+
+          if (isIdempotent && (
+              error.type == DioExceptionType.connectionTimeout ||
+                  error.type == DioExceptionType.receiveTimeout    ||
+                  error.type == DioExceptionType.sendTimeout)) {
             try {
               final response = await _dio.request(
                 error.requestOptions.path,

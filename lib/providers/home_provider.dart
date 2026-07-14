@@ -25,6 +25,13 @@ class HomeState {
     this.error,
   });
 
+  // ✅ FIX: `clearError` flag add केला. आधी success case मध्ये
+  //    `error` parameter pass न केल्यास जुना error state तसाच
+  //    राहायचा (कारण `error ?? this.error` — null आलं की जुनं
+  //    value वापरायचं). त्यामुळे API call यशस्वी झाला तरी UI
+  //    "No internet" error screen वरच अडकून राहायचा. आता success
+  //    call वेळी `clearError: true` पाठवलं की error explicitly
+  //    null होईल.
   HomeState copyWith({
     bool? isLoading,
     List<dynamic>? banners,
@@ -34,6 +41,7 @@ class HomeState {
     List<dynamic>? faqs,
     List<dynamic>? videos,
     String? error,
+    bool clearError = false,
   }) {
     return HomeState(
       isLoading:    isLoading    ?? this.isLoading,
@@ -43,7 +51,7 @@ class HomeState {
       testimonials: testimonials ?? this.testimonials,
       faqs:         faqs         ?? this.faqs,
       videos:       videos       ?? this.videos,
-      error:        error        ?? this.error,
+      error:        clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -69,6 +77,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
         testimonials: response['testimonials'] ?? [],
         faqs:         response['faqs']         ?? [],
         videos:       response['videos']       ?? [],
+        clearError:   true, // ✅ success झाल्यावर जुना error साफ करा
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -81,8 +90,9 @@ class HomeNotifier extends StateNotifier<HomeState> {
     try {
       final response = await _homeService.getBanners();
       state = state.copyWith(
-        isLoading: false,
-        banners:   response['banners'] ?? [],
+        isLoading:  false,
+        banners:    response['banners'] ?? [],
+        clearError: true, // ✅
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -97,6 +107,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
       state = state.copyWith(
         isLoading:  false,
         categories: response['categories'] ?? [],
+        clearError: true, // ✅
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -109,8 +120,9 @@ class HomeNotifier extends StateNotifier<HomeState> {
     try {
       final response = await _homeService.getFAQs();
       state = state.copyWith(
-        isLoading: false,
-        faqs:      response['faqs'] ?? [],
+        isLoading:  false,
+        faqs:       response['faqs'] ?? [],
+        clearError: true, // ✅
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -123,8 +135,9 @@ class HomeNotifier extends StateNotifier<HomeState> {
     try {
       final response = await _homeService.getVideos();
       state = state.copyWith(
-        isLoading: false,
-        videos:    response['videos'] ?? [],
+        isLoading:  false,
+        videos:     response['videos'] ?? [],
+        clearError: true, // ✅
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -138,7 +151,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   // ── Clear Error ────────────────────────────────────────────────────
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith(clearError: true);
   }
 }
 
