@@ -294,25 +294,13 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                           ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    fullName,
-                                    style: TextStyle(
-                                      fontSize: R.sp(context, 15),
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.black,
-                                    ),
-                                  ),
-                                ),
-                                Row(
-                                  children: List.generate(
-                                    5, (_) => const Icon(Icons.star, color: AppColors.star, size: 14),
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              fullName,
+                              style: TextStyle(
+                                fontSize: R.sp(context, 15),
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.black,
+                              ),
                             ),
                           ),
                         ],

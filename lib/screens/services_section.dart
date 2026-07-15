@@ -195,11 +195,6 @@ class ServiceCard extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(5, (_) => const Icon(Icons.star, color: AppColors.star, size: 16)),
-          ),
         ],
       ),
     );
