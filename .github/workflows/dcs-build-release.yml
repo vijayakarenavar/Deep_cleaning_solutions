@@ -55,10 +55,10 @@ jobs:
       # 8. Create key.properties
       - name: Create key.properties
         run: |
-          printf "storePassword=${{ secrets.KEYSTORE_PASSWORD }}\n" > android/key.properties
-          printf "keyPassword=${{ secrets.KEY_PASSWORD }}\n" >> android/key.properties
-          printf "keyAlias=${{ secrets.KEY_ALIAS }}\n" >> android/key.properties
-          printf "storeFile=../dcs.keystore\n" >> android/key.properties
+          printf "storePassword=${{ secrets.KEYSTORE_PASSWORD }}\n" > android/app/key.properties
+          printf "keyPassword=${{ secrets.KEY_PASSWORD }}\n" >> android/app/key.properties
+          printf "keyAlias=${{ secrets.KEY_ALIAS }}\n" >> android/app/key.properties
+          printf "storeFile=../dcs.keystore\n" >> android/app/key.properties
       # 9. Build Release APK
       - name: Build Release APK
         run: flutter build apk --release --shrink --obfuscate --split-debug-info=build/debug-info
