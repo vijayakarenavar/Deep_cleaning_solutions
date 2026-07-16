@@ -23,32 +23,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _emailCtrl       = TextEditingController();
   final _mobileCtrl      = TextEditingController();
 
-  // Single _addressCtrl replaced with the 4 fields the website has
-  // (Flat/Bungalow No., Wing, Society/Property Name, Landmark). Combined
-  // into `apartment` (flat+wing) and `address` (society+landmark) before
-  // hitting the API — see _buildApartmentAndAddress() below.
   final _flatCtrl        = TextEditingController(); // Flat / Bungalow No. *
   final _wingCtrl        = TextEditingController(); // Wing (optional)
   final _societyCtrl     = TextEditingController(); // Society / Property Name *
   final _landmarkCtrl    = TextEditingController(); // Landmark (optional)
 
-  // ✅ FIX: city/state text fields removed entirely. Per the API doc,
-  // city comes from the selected branch (`branches[].city`) and state is
-  // ALWAYS server-derived from branch_id — sending either as free text was
-  // wrong (and state is silently ignored by the server anyway).
+  // City/state text fields removed entirely. City now comes from the
+  // branch the user picked on the Cart screen (see initState below) and
+  // is shown read-only here; state is ALWAYS server-derived from branch_id.
   final _zipCtrl         = TextEditingController();
   final _couponCtrl      = TextEditingController();
   final _notesCtrl       = TextEditingController();
 
-  // ✅ FIX: no default city pre-selected. Doc says the FIRST API call
-  // must pass branch_id=1 (Pune) just to populate the branches dropdown
-  // list — but that's purely a backend requirement, not a UI default.
-  // The dropdown itself starts empty ("Select your city") and the user
-  // must actively pick one; the area dropdown only appears after that.
+  // ✅ CHANGED: city selection now happens on the Cart screen, not here.
+  // This just mirrors whatever branch cartProvider has selected (read-only
+  // in this screen) — see initState().
   int? _selectedBranchId;
 
-  // Area (city_area) selected from GET /checkout/init → city_areas
-  // No default — user must pick a valid area id, server rejects unknown ids with 422.
+  // Area (city_area) selected from GET /checkout/init → city_areas,
+  // scoped to _selectedBranchId. No default — user must pick a valid area
+  // id, server rejects unknown ids with 422.
   int? _selectedAreaId;
 
   String? _selectedDate;
@@ -56,14 +50,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isAdvancePayment = false;
   bool _isPlacingOrder   = false;
 
-  // ✅ NEW: instead of guessing the bottom bar's height with a hardcoded
-  // spacer, we measure the ACTUAL rendered height of the bottomSheet each
-  // frame and size the body's trailing spacer to match exactly (+ a small
-  // buffer). This guarantees the last form field is never hidden behind
-  // the bottom bar, no matter how its content changes (summary row
-  // showing/hiding, text wrapping on smaller screens, etc).
   final GlobalKey _bottomBarKey = GlobalKey();
-  double _bottomBarHeight = 160; // sensible initial guess before first measurement
+  double _bottomBarHeight = 160;
 
   void _measureBottomBar() {
     final ctx = _bottomBarKey.currentContext;
@@ -72,7 +60,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (box == null || !box.hasSize) return;
     final measured = box.size.height;
     if ((measured - _bottomBarHeight).abs() > 0.5) {
-      // Only rebuild when it actually changed, to avoid an infinite loop.
       setState(() => _bottomBarHeight = measured);
     }
   }
@@ -89,10 +76,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         _emailCtrl.text     = (user['email']  ?? '').toString();
         _mobileCtrl.text    = (user['mobile'] ?? user['phone'] ?? '').toString();
       }
-      // ✅ FIX: branch_id=1 sent here only because the API requires SOME
-      // branch_id to return the `branches` list + prefill subtotal — it
-      // does NOT pre-select a city in the UI (see _selectedBranchId above).
-      ref.read(orderProvider.notifier).getCheckoutInit(branchId: 1);
+
+      // ✅ CHANGED: city is decided on the Cart screen (cartProvider.
+      // selectedBranchId), not re-picked here. If the user already chose
+      // a city there, lock it in and load areas for THAT branch.
+      // Edge case fallback (e.g. deep link straight into checkout without
+      // visiting Cart first): use branch_id=1 purely to populate the
+      // `branches` list so a name can still resolve later — the UI below
+      // will prompt the user to go back and pick a city instead of
+      // silently showing a wrong one.
+      final cartBranchId = ref.read(cartProvider).selectedBranchId;
+      setState(() => _selectedBranchId = cartBranchId);
+      ref.read(orderProvider.notifier).getCheckoutInit(branchId: cartBranchId ?? 1);
     });
   }
 
@@ -112,8 +107,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
-  // Combine the 4 address fields into the 2 the API expects, matching how
-  // the website's fields map onto `apartment` / `address`.
   ({String apartment, String address}) _buildApartmentAndAddress() {
     final apartment = [_flatCtrl.text.trim(), _wingCtrl.text.trim()]
         .where((s) => s.isNotEmpty)
@@ -124,9 +117,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return (apartment: apartment, address: address);
   }
 
-  // ✅ NEW: looks up the city name string for the currently selected
-  // branch (`branches[].city`) — this is what gets sent as `city` to
-  // /checkout/process(-advance). Never hardcoded.
   String _selectedBranchCity(OrderState orderState) {
     final match = orderState.branches.firstWhere(
           (b) => b['id'] == _selectedBranchId,
@@ -138,8 +128,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
       context: context,
-      // today should not be a bookable date — booking must start
-      // from tomorrow onwards.
       initialDate: DateTime.now().add(const Duration(days: 1)),
       firstDate:   DateTime.now().add(const Duration(days: 1)),
       lastDate:    DateTime.now().add(const Duration(days: 30)),
@@ -154,25 +142,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       setState(() {
         _selectedDate =
         '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-        // Reset previously selected time slot since it belonged to the old date
         _selectedTime = null;
       });
       if (mounted) {
         ref.read(orderProvider.notifier).getTimeSlots(date: _selectedDate!);
       }
     }
-  }
-
-  // ✅ NEW: switching branch (city) changes the whole area list + state,
-  // so the previously-picked area is no longer valid — reset it and
-  // re-fetch /checkout/init for the new branch.
-  void _onBranchChanged(int? branchId) {
-    if (branchId == null || branchId == _selectedBranchId) return;
-    setState(() {
-      _selectedBranchId = branchId;
-      _selectedAreaId   = null;
-    });
-    ref.read(orderProvider.notifier).getCheckoutInit(branchId: branchId);
   }
 
   void _onAreaChanged(int? areaId) {
@@ -200,9 +175,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     await ref.read(orderProvider.notifier).removeCoupon();
   }
 
-  // ✅ NEW: shown when a checkout attempt is blocked with a 403 because
-  // the account has a pending DPDPA deletion request. Surfaces the exact
-  // backend message and offers a one-tap "Cancel Deletion" shortcut.
   Future<void> _showDeletionBlockedDialog(String message) async {
     await showDialog(
       context: context,
@@ -250,8 +222,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBranchId == null) {
+      // ✅ CHANGED: message now points back to Cart, since that's where
+      // city selection actually happens.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your city'), backgroundColor: AppColors.secondary),
+        const SnackBar(content: Text('Please select your city on the Cart page'), backgroundColor: AppColors.secondary),
       );
       return;
     }
@@ -279,7 +253,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       bool success = false;
 
-      // combine the 4 address fields before sending
       final addr = _buildApartmentAndAddress();
       final cityName = _selectedBranchCity(ref.read(orderProvider));
 
@@ -338,8 +311,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           context.go('/orders');
         }
       } else if (mounted) {
-        // ✅ NEW: account-deletion-pending gets its own dialog with a
-        // "Cancel Deletion" shortcut instead of a plain snackbar.
         final orderState = ref.read(orderProvider);
         if (orderState.isDeletionBlocked) {
           await _showDeletionBlockedDialog(
@@ -359,11 +330,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  // ✅ NEW: opens the full order-summary breakdown (cart items, subtotal,
-  // discount, shipping, both payment options) as a draggable modal instead
-  // of a permanently-visible tall bottomSheet. This is what removes the
-  // overlap with the checkout form — the persistent bottom bar is now a
-  // fixed, small height, and the detailed breakdown only appears on demand.
   void _showOrderSummarySheet(CartState cartState, OrderState orderState) {
     showModalBottomSheet(
       context: context,
@@ -464,22 +430,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
-    // Summary breakdown (subtotal/commuting charge/total) should only
-    // reflect server values once the USER has actually picked an area from
-    // the dropdown (_selectedAreaId).
     final hasSummary = _selectedAreaId != null &&
         (orderState.grandTotal > 0 || orderState.selectedAreaId == _selectedAreaId);
 
-    // Switches to advanceAmount when "Advance Payment" is selected instead
-    // of always showing the full grandTotal.
     final displayTotal = hasSummary
         ? (_isAdvancePayment ? orderState.advanceAmount : orderState.grandTotal)
         : cartState.finalAmount;
 
-    // Re-measure the bottom bar after this frame paints — covers the case
-    // where `hasSummary` flips (adds/removes the "View order summary" row)
-    // or the total's digit count changes text height, keeping the spacer
-    // in the scroll body always in sync with the real bar height.
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureBottomBar());
 
     return Scaffold(
@@ -496,17 +453,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
-          // Re-fetches branches, city_areas, time slots (if a date is picked),
-          // and cart/subtotal state — same data the screen loads on initState.
           await ref.read(orderProvider.notifier).getCheckoutInit(branchId: _selectedBranchId ?? 1);
           if (_selectedDate != null) {
             await ref.read(orderProvider.notifier).getTimeSlots(date: _selectedDate!);
           }
         },
         child: SingleChildScrollView(
-          // AlwaysScrollableScrollPhysics ensures pull-to-refresh works
-          // even when content is shorter than the screen (not enough to
-          // scroll on its own).
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Form(
@@ -515,7 +467,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
 
-                // ── Personal Details ─────────────────
                 _SectionTitle('Personal Details'),
                 const SizedBox(height: 10),
                 Row(
@@ -532,52 +483,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Service Location ─────────────────
                 _SectionTitle('Service Location'),
                 const SizedBox(height: 10),
 
-                // ✅ NEW: Branch (city) dropdown — from /checkout/init →
-                // branches. Picking a branch reloads the area dropdown
-                // below for that city, and its `state` is what the server
-                // uses (never sent by the app).
-                _buildBranchDropdown(orderState),
+                // ✅ CHANGED: city is READ-ONLY here — already picked on
+                // the Cart screen (which also set the session branch via
+                // POST /cart/set-branch). No "Change" option here anymore;
+                // city can only be changed from the Cart screen.
+                _buildCityDisplay(orderState),
                 const SizedBox(height: 10),
 
-                // ✅ FIX: area dropdown (city_areas from /checkout/init,
-                // scoped to the currently selected branch) only appears
-                // once the user has actually picked a city — no default
-                // area/city selection.
                 if (_selectedBranchId != null) ...[
                   _buildAreaDropdown(orderState),
                   const SizedBox(height: 10),
-                ] else
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.info_outline, color: AppColors.textMuted, size: 16),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Select your city first to see available areas',
-                              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                ],
 
-                // Website's 4 fields (Flat/Bungalow No., Wing, Society/
-                // Property Name, Landmark) instead of a single "Full Address".
                 Row(
                   children: [
                     Expanded(
@@ -602,14 +522,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 10),
                 _buildField(_landmarkCtrl, 'Landmark (optional)'),
                 const SizedBox(height: 10),
-                // ✅ FIX: city/state text fields removed — city now comes
-                // from the branch dropdown above, state is server-derived.
-                // Only the PIN code remains as a manual field.
                 _buildField(_zipCtrl, 'PIN Code', keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : (v.length != 6 ? '6 digits required' : null)),
 
                 const SizedBox(height: 20),
 
-                // ── Order Notes (optional) ────
                 Row(
                   children: [
                     _SectionTitle('Order Notes'),
@@ -652,7 +568,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Booking Date ─────────────────────
                 _SectionTitle('Booking Schedule'),
                 const SizedBox(height: 10),
                 GestureDetector(
@@ -680,7 +595,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                 ),
 
-                // ── Time Slots ───────────────────────
                 if (_selectedDate != null) ...[
                   const SizedBox(height: 12),
                   if (orderState.isLoading)
@@ -755,14 +669,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Coupon Code ───────────────
                 _SectionTitle('Coupon Code'),
                 const SizedBox(height: 10),
                 _buildCouponSection(orderState),
 
                 const SizedBox(height: 20),
 
-                // ── Payment Type ─────────────────────
                 _SectionTitle('Payment Type'),
                 const SizedBox(height: 10),
                 _PaymentOption(
@@ -781,23 +693,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   onChanged:  (v) => setState(() => _isAdvancePayment = v),
                 ),
 
-                // ✅ FIX: spacer now matches the bottom bar's REAL measured
-                // height (+16px buffer) instead of a hardcoded guess. This is
-                // what guarantees the checkout content never sits underneath
-                // the summary bottom bar, in any state.
                 SizedBox(height: _bottomBarHeight + 16),
               ],
             ),
           ),
         ),
       ),
-      // ✅ FIX: replaced the tall, content-dependent bottomSheet (up to 55%
-      // of screen height) with a compact fixed-height bar. Full breakdown
-      // (cart items, subtotal, discount, shipping, both payment rows) now
-      // lives in a draggable modal opened via "View order summary", so it
-      // never permanently overlaps the checkout form.
       bottomSheet: Container(
-        key: _bottomBarKey, // measured in a post-frame callback below
+        key: _bottomBarKey,
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         decoration: BoxDecoration(
           color: AppColors.white,
@@ -865,10 +768,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  // ✅ NEW: Branch (city) dropdown widget — from GET /checkout/init →
-  // branches. Each branch already carries its `state`, so the app never
-  // needs (or shows) a separate state field.
-  Widget _buildBranchDropdown(OrderState orderState) {
+  // ✅ CHANGED (was _buildBranchDropdown): city is READ-ONLY here — it was
+  // already chosen on the Cart screen (cartProvider.selectedBranchId),
+  // which also set the session branch server-side via
+  // POST /cart/set-branch. The "Change" link has been removed entirely —
+  // city can now only be changed by going back to the Cart screen
+  // manually (e.g. via the back button), not from a button on this page.
+  Widget _buildCityDisplay(OrderState orderState) {
     if (orderState.isInitLoading && orderState.branches.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 14),
@@ -876,41 +782,67 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     }
 
+    if (_selectedBranchId == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.secondary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: AppColors.secondary, size: 18),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Please select your city on the Cart page first',
+                style: TextStyle(color: AppColors.secondary, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () => context.canPop() ? context.pop() : context.go('/cart'),
+              child: const Text('Go to Cart', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final match = orderState.branches.firstWhere(
+          (b) => b['id'] == _selectedBranchId,
+      orElse: () => const {},
+    );
+    final city  = match['city']?.toString()  ?? '';
+    final state = match['state']?.toString() ?? '';
+    final label = state.isNotEmpty ? '$city, $state' : city;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.border),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<int>(
-          value: _selectedBranchId,
-          isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primary),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.location_on, color: AppColors.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label.isNotEmpty ? label : 'Loading city...',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.black),
+            ),
           ),
-          hint: const Text('Select your city', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-          style: const TextStyle(fontSize: 13, color: AppColors.black),
-          items: orderState.branches.map((branch) {
-            final id    = branch['id'] as int;
-            final city  = branch['city']?.toString() ?? '';
-            final state = branch['state']?.toString() ?? '';
-            return DropdownMenuItem<int>(
-              value: id,
-              child: Text(state.isNotEmpty ? '$city, $state' : city),
-            );
-          }).toList(),
-          onChanged: _onBranchChanged,
-          validator: (v) => v == null ? 'Please select your city' : null,
-        ),
+          // ✅ REMOVED: "Change" button — city can no longer be changed
+          // from the Checkout screen, only from Cart.
+        ],
       ),
     );
   }
 
-  // Area dropdown widget — only show areas that actually have a rate (shipping_charge > 0)
   Widget _buildAreaDropdown(OrderState orderState) {
     if (orderState.isInitLoading && orderState.cityAreas.isEmpty) {
       return const Padding(
@@ -925,12 +857,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }).toList();
 
     return Container(
-      // ✅ FIX: forces Flutter to build a BRAND NEW dropdown widget whenever
-      // the branch changes, instead of patching/reusing the previous one.
-      // Without this key, DropdownButtonFormField can keep its internal
-      // popup-menu items cached from before the branch switch — tapping the
-      // small arrow icon happened to rebuild it correctly, but tapping the
-      // rest of the field could still open the stale, old-city menu.
       key: ValueKey('area_dropdown_${_selectedBranchId ?? 'none'}'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
@@ -965,7 +891,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  // Coupon apply/remove widget
   Widget _buildCouponSection(OrderState orderState) {
     final applied = orderState.couponCode != null && orderState.couponCode!.isNotEmpty;
 
@@ -1074,7 +999,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 }
 
-// quick-fill chip for Order Notes
 class _QuickNoteChip extends StatelessWidget {
   final String label;
   final TextEditingController controller;
@@ -1112,8 +1036,6 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// Renders one cart item's name (+ sqft/qty if present) and price — used
-// both in the modal summary sheet and could be reused elsewhere.
 class _CartLineItem extends StatelessWidget {
   final Map<String, dynamic> item;
   const _CartLineItem({required this.item});
@@ -1163,9 +1085,6 @@ class _CartLineItem extends StatelessWidget {
   }
 }
 
-// `bold` and `highlighted` let the Full Payment / Advance Payment rows be
-// shown together with the selected one emphasized, matching the website's
-// order summary card.
 class _AmountRow extends StatelessWidget {
   final String label;
   final double amount;

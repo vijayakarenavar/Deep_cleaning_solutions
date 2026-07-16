@@ -2,7 +2,7 @@
 
 import 'api_client.dart';
 
-// ✅ NEW: shared helper — backend sends amounts >= 1000 with a
+// ✅ shared helper — backend sends amounts >= 1000 with a
 // thousands-separator comma (e.g. "6,600.00"), which double.tryParse()
 // can't handle and silently returns null -> 0. Strip commas first.
 double _parseAmount(dynamic v) {
@@ -20,9 +20,9 @@ class CartService {
     return {
       'cart_items':   data['items']    ?? [],
       'cart_count':   data['count']    ?? 0,
-      'total_amount': _parseAmount(data['subtotal']),                                   // ✅ CHANGED
-      'discount':     _parseAmount(data['discount']),                                   // ✅ CHANGED
-      'final_amount': _parseAmount(data['final_amount'] ?? data['subtotal']),           // ✅ CHANGED
+      'total_amount': _parseAmount(data['subtotal']),
+      'discount':     _parseAmount(data['discount']),
+      'final_amount': _parseAmount(data['final_amount'] ?? data['subtotal']),
       'coupon_code':  data['coupon_code'],
     };
   }
@@ -126,5 +126,71 @@ class CartService {
       data: {'id': productId},
     );
     return response.data;
+  }
+
+  // ✅ NEW: Set the session's selected city/branch. Must be called before
+  // checkout — all subsequent /cart, /checkout/init and /checkout/summary
+  // subtotal calculations become branch-aware once this is set. Also
+  // persists preferred_branch_id on the user record if logged in.
+  // Returns branch-specific prices for all current cart items immediately
+  // (same shape as getBranchPrices below).
+  Future<Map<String, dynamic>> setBranch(int branchId) async {
+    final response = await _api.post(
+      '/cart/set-branch',
+      data: {'branch_id': branchId},
+    );
+    if (response.data['status'] == false) {
+      throw response.data['message'] ?? 'Could not set branch.';
+    }
+    return _parseBranchPrices(response.data);
+  }
+
+  // ✅ NEW: Get branch-specific prices for everything currently in the
+  // cart, for whichever branch was set via setBranch(). Use this to
+  // refresh city pricing after cart contents change (add/remove item)
+  // without re-calling setBranch.
+  Future<Map<String, dynamic>> getBranchPrices() async {
+    final response = await _api.get('/cart/branch-prices');
+    if (response.data['status'] == false) {
+      throw response.data['message'] ?? 'Could not fetch branch prices.';
+    }
+    return _parseBranchPrices(response.data);
+  }
+
+  // Shared parser for both setBranch and getBranchPrices — same response shape.
+  Map<String, dynamic> _parseBranchPrices(Map<String, dynamic> raw) {
+    final data = raw['data'] ?? {};
+    final pricesRaw = (data['prices'] as Map<String, dynamic>?) ?? {};
+
+    // Keep prices keyed by rowId, but normalize numeric fields.
+    final prices = <String, Map<String, dynamic>>{};
+    pricesRaw.forEach((rowId, v) {
+      if (v == null) {
+        prices[rowId] = {'available': false};
+      } else {
+        final m = v as Map<String, dynamic>;
+        prices[rowId] = {
+          'available':      true,
+          'price_per_unit': _parseAmount(m['price_per_unit']),
+          'final_price':    _parseAmount(m['final_price']),
+          'sqft':           m['sqft'],
+        };
+      }
+    });
+
+    final unavailableRaw = (data['unavailable'] as List<dynamic>?) ?? [];
+    final unavailable = unavailableRaw
+        .map((e) => {
+      'rowId': e['rowId']?.toString() ?? '',
+      'name':  e['name']?.toString() ?? '',
+    })
+        .toList();
+
+    return {
+      'branch_id':   data['branch_id'] ?? 0,
+      'prices':      prices,
+      'unavailable': unavailable,
+      'subtotal':    _parseAmount(data['subtotal']),
+    };
   }
 }

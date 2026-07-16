@@ -13,6 +13,15 @@ class CartState {
   final String? couponCode;
   final String? error;
 
+  // ✅ NEW: branch/city pricing state
+  final int? selectedBranchId;
+  final bool isBranchLoading;
+  final String? branchError;
+  // rowId -> {available, price_per_unit, final_price, sqft}
+  final Map<String, dynamic> branchPrices;
+  // list of {rowId, name} not available in the selected city
+  final List<dynamic> unavailableInBranch;
+
   const CartState({
     this.isLoading      = false,
     this.cartItems      = const [],
@@ -22,7 +31,14 @@ class CartState {
     this.finalAmount    = 0.0,
     this.couponCode,
     this.error,
+    this.selectedBranchId,
+    this.isBranchLoading = false,
+    this.branchError,
+    this.branchPrices = const {},
+    this.unavailableInBranch = const [],
   });
+
+  bool get hasBranchSelected => selectedBranchId != null;
 
   CartState copyWith({
     bool? isLoading,
@@ -33,6 +49,11 @@ class CartState {
     double? finalAmount,
     String? couponCode,
     String? error,
+    int? selectedBranchId,
+    bool? isBranchLoading,
+    String? branchError,
+    Map<String, dynamic>? branchPrices,
+    List<dynamic>? unavailableInBranch,
   }) {
     return CartState(
       isLoading:      isLoading      ?? this.isLoading,
@@ -43,6 +64,11 @@ class CartState {
       finalAmount:    finalAmount    ?? this.finalAmount,
       couponCode:     couponCode     ?? this.couponCode,
       error:          error          ?? this.error,
+      selectedBranchId:    selectedBranchId    ?? this.selectedBranchId,
+      isBranchLoading:     isBranchLoading      ?? this.isBranchLoading,
+      branchError:         branchError,
+      branchPrices:        branchPrices         ?? this.branchPrices,
+      unavailableInBranch: unavailableInBranch  ?? this.unavailableInBranch,
     );
   }
 }
@@ -51,7 +77,16 @@ class CartNotifier extends StateNotifier<CartState> {
   final CartService _cartService = CartService();
 
   CartNotifier() : super(const CartState()) {
-    getCart();
+    _init();
+  }
+
+  // ✅ CHANGED: no more auto-restoring the last-picked city from
+  // SharedPreferences. Every time the Cart screen loads (fresh app
+  // launch, or coming back to it), city selection starts blank and the
+  // user must explicitly pick it again — this was a deliberate product
+  // decision to avoid stale/wrong-city pricing being silently applied.
+  Future<void> _init() async {
+    await getCart();
   }
 
   Future<void> getCart() async {
@@ -72,6 +107,61 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
+  // ✅ CHANGED: no longer persists the chosen city to SharedPreferences —
+  // selection is intentionally session-only now (see _init above), so
+  // every fresh visit to Cart requires picking the city again.
+  Future<bool> setBranch(int branchId) async {
+    state = state.copyWith(isBranchLoading: true, branchError: null);
+    try {
+      final result = await _cartService.setBranch(branchId);
+
+      state = state.copyWith(
+        isBranchLoading:     false,
+        selectedBranchId:    branchId,
+        branchPrices:        result['prices'] ?? {},
+        unavailableInBranch: result['unavailable'] ?? [],
+      );
+
+      // Refresh the cart itself — GET /cart's subtotal is branch-aware
+      // once a branch is set, so this pulls in the correct total/discount.
+      await getCart();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isBranchLoading: false, branchError: e.toString());
+      return false;
+    }
+  }
+
+  // ✅ NEW: Re-fetch branch-specific prices for the current cart contents
+  // without re-calling setBranch — e.g. after adding/removing an item
+  // while a branch is already selected.
+  Future<void> refreshBranchPrices() async {
+    if (state.selectedBranchId == null) return;
+    state = state.copyWith(isBranchLoading: true, branchError: null);
+    try {
+      final result = await _cartService.getBranchPrices();
+      state = state.copyWith(
+        isBranchLoading:     false,
+        branchPrices:        result['prices'] ?? {},
+        unavailableInBranch: result['unavailable'] ?? [],
+      );
+    } catch (e) {
+      state = state.copyWith(isBranchLoading: false, branchError: e.toString());
+    }
+  }
+
+  /// Look up the branch-specific final price for a cart rowId.
+  /// Returns null if branch prices haven't loaded or item isn't available.
+  double? finalPriceFor(String rowId) {
+    final entry = state.branchPrices[rowId];
+    if (entry == null || entry['available'] != true) return null;
+    return (entry['final_price'] as num?)?.toDouble();
+  }
+
+  bool isUnavailableInBranch(String rowId) {
+    return state.unavailableInBranch.any((u) => u['rowId'] == rowId);
+  }
+
   // ✅ FIX: quantity param काढला — service मध्ये नाही
   Future<bool> addToCart({
     required int productId,
@@ -84,6 +174,7 @@ class CartNotifier extends StateNotifier<CartState> {
         extras:    extras,
       );
       await getCart();
+      if (state.hasBranchSelected) await refreshBranchPrices();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -105,6 +196,7 @@ class CartNotifier extends StateNotifier<CartState> {
         addons:        addons,
       );
       await getCart();
+      if (state.hasBranchSelected) await refreshBranchPrices();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -124,6 +216,7 @@ class CartNotifier extends StateNotifier<CartState> {
         qty:   qty,
       );
       await getCart();
+      if (state.hasBranchSelected) await refreshBranchPrices();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -137,6 +230,7 @@ class CartNotifier extends StateNotifier<CartState> {
     try {
       await _cartService.removeCartItem(rowId);
       await getCart();
+      if (state.hasBranchSelected) await refreshBranchPrices();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -145,6 +239,10 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 
   Future<bool> clearCart() async {
+    // ✅ CHANGED: city choice no longer carries across an order either —
+    // since selection is session-only now (not persisted), resetting the
+    // whole CartState on clear (including selectedBranchId) is consistent
+    // with "pick city fresh every time".
     state = const CartState();
     return true;
   }
