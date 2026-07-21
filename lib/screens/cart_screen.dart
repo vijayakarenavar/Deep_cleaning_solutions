@@ -277,7 +277,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 }
 
-// ✅ NEW: banner prompting city selection / showing the current city.
+// ✅ CHANGED: banner prompting city selection / showing the current city —
+// ata jasta "highlighted" / lakh vedhणारा: gradient background, border,
+// subtle shadow, ani no-city state madhe bold pulse-worthy color + bigger
+// icon badge, jyamule user cha lakh pahilyach frame madhe jaईल.
 class _CityBanner extends StatelessWidget {
   final String? cityLabel;
   final bool isLoading;
@@ -288,42 +291,95 @@ class _CityBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasCity = cityLabel != null && cityLabel!.isNotEmpty;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        color: hasCity ? AppColors.primary.withOpacity(0.06) : AppColors.secondary.withOpacity(0.08),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Icon(
-              Icons.location_on,
-              size: 18,
-              color: hasCity ? AppColors.primary : AppColors.secondary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                isLoading
-                    ? 'Updating prices...'
-                    : hasCity
-                    ? 'Showing prices for $cityLabel'
-                    : 'Select your city to see accurate pricing',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: hasCity ? AppColors.primary : AppColors.secondary,
+
+    // ✅ NEW: strong highlight color when no city picked yet — draws the
+    // eye immediately instead of blending into the background.
+    final Color accent = hasCity ? AppColors.primary : AppColors.secondary;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              // ✅ NEW: gradient instead of flat low-opacity fill — much
+              // more visible, especially in the no-city state.
+              gradient: LinearGradient(
+                colors: hasCity
+                    ? [AppColors.primary.withOpacity(0.10), AppColors.primary.withOpacity(0.04)]
+                    : [AppColors.secondary.withOpacity(0.16), AppColors.secondary.withOpacity(0.06)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              // ✅ NEW: solid border in the accent color makes the banner
+              // read as a distinct, tappable card rather than a stripe.
+              border: Border.all(color: accent.withOpacity(hasCity ? 0.35 : 0.55), width: 1.4),
+              // ✅ NEW: soft shadow so it lifts off the page.
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              ),
+              ],
             ),
-            if (isLoading)
-              const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-            else
-              Text(
-                hasCity ? 'Change' : 'Select',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
-              ),
-          ],
+            child: Row(
+              children: [
+                // ✅ NEW: icon badge (circle chip) instead of a bare icon —
+                // gives the location pin more visual weight.
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: accent.withOpacity(hasCity ? 0.14 : 0.20),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.location_on,
+                    size: 18,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    isLoading
+                        ? 'Updating prices...'
+                        : hasCity
+                        ? 'Showing prices for $cityLabel'
+                        : 'Select your city to see accurate pricing',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: accent,
+                    ),
+                  ),
+                ),
+                if (isLoading)
+                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                else
+                // ✅ NEW: pill-shaped action button instead of plain text
+                // link — makes the "tap here" affordance obvious.
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      hasCity ? 'Change' : 'Select',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

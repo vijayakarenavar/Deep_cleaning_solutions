@@ -330,6 +330,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  // ✅ FIX: cart items ata branch-aware price sobat map hotात. Cart screen
+  // sarkhach `cartProvider.notifier.finalPriceFor(rowId)` vaparун price
+  // kadhтोय, ऐवजी raw `item['price']` var avalambun rahण्याच्या — jyamule
+  // aadhi Order Summary madhe wrong (default) price yet hota.
   void _showOrderSummarySheet(CartState cartState, OrderState orderState) {
     showModalBottomSheet(
       context: context,
@@ -375,7 +379,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       children: [
                         if (cartState.cartItems.isNotEmpty) ...[
-                          ...cartState.cartItems.map((item) => _CartLineItem(item: item)),
+                          // ✅ FIX: branch-aware price (finalPriceFor) prati
+                          // item resolve करून _CartLineItem la pass kartोय.
+                          ...cartState.cartItems.map((item) {
+                            final rowId = item['rowId']?.toString() ?? '';
+                            final branchPrice = cartState.hasBranchSelected
+                                ? ref.read(cartProvider.notifier).finalPriceFor(rowId)
+                                : null;
+                            return _CartLineItem(item: item, branchPrice: branchPrice);
+                          }),
                           const SizedBox(height: 6),
                           const Divider(height: 16),
                         ],
@@ -602,28 +614,52 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   else if (orderState.timeSlots.isNotEmpty) ...[
                     const Text('Select Time Slot', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: orderState.timeSlots.entries.map((entry) {
+                    // ✅ FIX: Row + Expanded ऐवजी Wrap — प्रत्येक slot card
+                    // ata equal width घेतो ani full width evenly bharते,
+                    // jyamule "Starting from ..." text lambi zalyavar right
+                    // side khali empty jaga urत नाही.
+                    Row(
+                      children: orderState.timeSlots.entries.toList().asMap().entries.map((indexed) {
+                        final isLast = indexed.key == orderState.timeSlots.entries.length - 1;
+                        final entry  = indexed.value;
                         final key   = entry.key;
                         final label = entry.value is Map ? (entry.value['label'] ?? key) : key;
                         final time  = entry.value is Map ? (entry.value['time'] ?? key) : key;
                         final isSelected = _selectedTime == key;
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedTime = key),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primary : AppColors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(label.toString(), style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textMuted)),
-                                Text(time.toString(),  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.black)),
-                              ],
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(right: isLast ? 0 : 8),
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedTime = key),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppColors.primary : AppColors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      label.toString(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textMuted),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    // ✅ FIX: time ata "Starting from 10:00 AM"
+                                    // asa dakhवते, ऐवजी fakt "10:00 AM".
+                                    // Long text wrap hoto (maxLines: 2) evadhya
+                                    // narrow equal-width card madhe bसण्यासाठी.
+                                    Text(
+                                      'Starting from ${time.toString()}',
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.black),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         );
@@ -1036,14 +1072,21 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+// ✅ FIX: accepts an optional branch-aware `branchPrice`. When present it
+// takes priority over the raw `item['price']` (which is the default/
+// non-branch-aware price and was the source of the ₹17600 vs ₹6600 bug).
 class _CartLineItem extends StatelessWidget {
   final Map<String, dynamic> item;
-  const _CartLineItem({required this.item});
+  final double? branchPrice; // ✅ NEW
+  const _CartLineItem({required this.item, this.branchPrice});
 
   @override
   Widget build(BuildContext context) {
     final name  = (item['name'] ?? item['service_name'] ?? '').toString();
-    final price = item['price'];
+    // ✅ FIX: prefer branch-aware price; fall back to raw item price only
+    // if branch price isn't available (e.g. no city selected yet, or item
+    // has no branch price entry).
+    final price = branchPrice ?? item['price'];
     final qty   = item['quantity'] ?? item['qty'] ?? 1;
     final options = item['options'];
     final sqft = (options is Map) ? options['sqft'] : null;
