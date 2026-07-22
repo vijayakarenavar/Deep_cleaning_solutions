@@ -26,7 +26,7 @@ class _FAQSectionState extends State<FAQSection> {
     },
     {
       'q': 'How do I schedule a cleaning service?',
-      'a': 'Scheduling a cleaning service with Deep Cleaning Solutions is simple and convenient. You can book through our website using our online booking form, call us directly at +91 7558634862, or send an email to contact@suvarnarajgroup.com. Our customer service team is available to help you select the appropriate service package, answer any questions, and schedule a time that works best for you. We recommend booking at least 3-4 days in advance to ensure availability, especially for first-time services.',
+      'a': 'Scheduling a cleaning service with Deep Cleaning Solutions is simple and convenient. You can book through our website using our online booking form, call us directly at +91 8485854972, or send an email to contact@deepcleaningsolutions.in. Our customer service team is available to help you select the appropriate service package, answer any questions, and schedule a time that works best for you. We recommend booking at least 3-4 days in advance to ensure availability, especially for first-time services.',
     },
     {
       'q': 'What cleaning products and equipment do you use?',

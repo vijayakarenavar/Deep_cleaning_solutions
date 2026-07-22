@@ -26,13 +26,18 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
 
   final ContactService _contactService = ContactService();
 
+  // ✅ FIX: services list आता website (deepcleaningsolutions.in) च्या
+  // dropdown प्रमाणे exact match करते.
   final List<String> _services = [
-    'Home Cleaning',
-    'Office Cleaning',
-    'Flat Cleaning',
-    'Bungalow Cleaning',
-    'Society Cleaning',
+    'Choose the service',
+    'Custom Home Cleaning',
+    'Flats Cleaning (Furnished & Unfurnished)',
+    'Bungalows Cleaning',
+    'Offices Cleaning',
+    'Societies Cleaning',
     'Restaurant Cleaning',
+    'Shops Cleaning',
+    'School/Colleges Cleaning',
     'Car Wash',
     'Other',
   ];
@@ -80,6 +85,13 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
         message: _msgCtrl.text.trim(),
       );
       if (mounted) {
+        // ✅ FIX: सक्सेसफुल submit नंतर सगळे fields clear होतात —
+        // आधी फक्त message clear व्हायचा, आता Name, Email, Mobile,
+        // Service dropdown आणि Message सगळं reset होतं.
+        _nameCtrl.clear();
+        _emailCtrl.clear();
+        _mobileCtrl.clear();
+        _serviceCtrl.clear();
         _msgCtrl.clear();
         setState(() => _selectedService = null);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -239,8 +251,8 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                     icon: Icons.email,
                     color: AppColors.primary,
                     label: 'Support',
-                    value: 'contact@suvarnarajgroup.com',
-                    onTap: () => _launchUrl('mailto:contact@suvarnarajgroup.com'),
+                    value: 'contact@deepcleaningsolutions.in',
+                    onTap: () => _launchUrl('mailto:contact@deepcleaningsolutions.in'),
                   ),
                 ],
               ),

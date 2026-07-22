@@ -38,27 +38,33 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   // ✅ simple email format check
   final RegExp _emailRegex = RegExp(r'^[\w\.\-]+@[\w\-]+\.[\w\-\.]+$');
 
-  // ✅ FIX: Car Wash service ajun launch zaलele nahi, mhणून dropdown मधून
-  // कायमचा काढून टाकला.
+  // ✅ FIX: Car Wash service अजून launch झालेली नाही, म्हणून dropdown मधून
+  // कायमचा काढून टाकला. आणि 'Choose Service' हा dummy item इथे नाहीये —
+  // तो फक्त dropdown चा `hint` म्हणून खाली दाखवला जातो (value == null असताना).
   final List<String> _services = [
-    'Flat Cleaning',
     'Bungalow Cleaning',
     'Office Cleaning',
-    'Society Cleaning',
+    'Societies Cleaning',
     'Restaurant Cleaning',
-    'Shop Cleaning',
-    'School Cleaning',
-    'Deep Cleaning',
+    'Shops Cleaning',
+    'School/Collegs Cleaning',
   ];
 
   final List<Map<String, String>> _timeSlots = [
     {'label': '10:00 AM', 'value': '10:00'},
+    {'label': '10:30 AM', 'value': '10:30'},
     {'label': '11:00 AM', 'value': '11:00'},
+    {'label': '11:30 AM', 'value': '11:30'},
     {'label': '12:00 PM', 'value': '12:00'},
+    {'label': '12:30 PM', 'value': '12:30'},
     {'label': '1:00 PM',  'value': '13:00'},
+    {'label': '1:30 PM', 'value': '13:30'},
     {'label': '2:00 PM',  'value': '14:00'},
+    {'label': '2:30 PM', 'value': '14:30'},
     {'label': '3:00 PM',  'value': '15:00'},
+    {'label': '3:30 PM', 'value': '15:30'},
     {'label': '4:00 PM',  'value': '16:00'},
+    {'label': '4:30 PM', 'value': '16:30'},
     {'label': '5:00 PM',  'value': '17:00'},
   ];
 
@@ -66,18 +72,10 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
   void initState() {
     super.initState();
 
-    // Service auto select
-    // ✅ FIX: 'Car Wash' auto-select condition काढली (dropdown मध्ये आता
-    // ती option च नाही, so मॅच झाली तरी null च rahil).
-    _selectedService = widget.serviceName.contains('Flat')        ? 'Flat Cleaning'
-        : widget.serviceName.contains('Bungalow')   ? 'Bungalow Cleaning'
-        : widget.serviceName.contains('Office')     ? 'Office Cleaning'
-        : widget.serviceName.contains('Society')    ? 'Society Cleaning'
-        : widget.serviceName.contains('Restaurant') ? 'Restaurant Cleaning'
-        : widget.serviceName.contains('Shop')       ? 'Shop Cleaning'
-        : widget.serviceName.contains('School')     ? 'School Cleaning'
-        : widget.serviceName.contains('Deep')       ? 'Deep Cleaning'
-        : null;
+    // ✅ FIX: आता service auto-select होत नाही. यूजरने manually dropdown मधून
+    // service निवडलीच पाहिजे. Dropdown value null असल्यामुळे खाली
+    // 'Choose Service' hint आपोआप दिसेल.
+    _selectedService = null;
 
     Future.microtask(() {
       final user = ref.read(authProvider).user;
@@ -128,6 +126,9 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
 
   Future<void> _submitEnquiry() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // ✅ FIX: service निवडलीच पाहिजे — null असेल (म्हणजे अजूनही
+    // 'Choose Service' दाखवत असेल) तर पुढे जाऊ देऊ नये.
     if (_selectedService == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a service'), backgroundColor: AppColors.secondary),
@@ -135,23 +136,30 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
       return;
     }
 
-    // ✅ FIX: if user opted for paid inspection, date & time are mandatory —
+    // ✅ FIX: "Order inspection at just Rs 200/-" checkbox आता compulsory आहे —
+    // तो check केल्याशिवाय फॉर्म submit होणार नाही.
+    if (!_orderInspection) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please check "Order inspection" to proceed'), backgroundColor: AppColors.secondary),
+      );
+      return;
+    }
+
+    // ✅ FIX: checkbox compulsory असल्यामुळे date & time पण compulsory —
     // previously these were never checked, so a user could tap "Proceed to
     // Payment" with no date/time chosen and inspectionDate/inspectionTime
     // would silently go to the API as null.
-    if (_orderInspection) {
-      if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select inspection date'), backgroundColor: AppColors.secondary),
-        );
-        return;
-      }
-      if (_selectedTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select inspection time'), backgroundColor: AppColors.secondary),
-        );
-        return;
-      }
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select inspection date'), backgroundColor: AppColors.secondary),
+      );
+      return;
+    }
+    if (_selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select inspection time'), backgroundColor: AppColors.secondary),
+      );
+      return;
     }
 
     setState(() => _isLoading = true);
@@ -274,7 +282,8 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
               const SizedBox(height: 10),
 
               // ── Service Dropdown ───────────────
-              // ✅ FIX: 'service' field (आधी service_type होता)
+              // ✅ FIX: 'service' field (आधी service_type होता).
+              // value == null असल्यामुळे by default hint 'Choose Service' दिसतं.
               Container(
                 decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -442,9 +451,11 @@ class _EnquiryFormScreenState extends ConsumerState<EnquiryFormScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(
-                    _orderInspection ? 'Proceed to Payment (Rs 200)' : 'Submit Enquiry',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      : const Text(
+                    // ✅ FIX: Order inspection आता compulsory असल्यामुळे बटण
+                    // नेहमी 'Proceed to Payment' दाखवेल.
+                    'Proceed to Payment (Rs 200)',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),

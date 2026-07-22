@@ -105,35 +105,64 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
 
     if (!mounted) return;
 
+    // ✅ FIX: नवीन snackbar दाखवण्याआधी आधीचा/queue मधला snackbar clear
+    // करतो — नाहीतर पटापट tap केल्यास snackbars एकामागोमाग queue होत
+    // राहतात आणि तो "कधीच जात नाही" असं वाटतं.
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    // ✅ FIX: message, Login बटण आणि X icon आता तिन्ही एकाच row मध्ये.
+    Widget snackContent(String text, {VoidCallback? onLogin}) => Row(
+      children: [
+        Expanded(child: Text(text, style: const TextStyle(color: Colors.white))),
+        if (onLogin != null) ...[
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onLogin,
+            child: const Text(
+              'Login',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+            ),
+          ),
+        ],
+        const SizedBox(width: 12),
+        GestureDetector(
+          onTap: () => messenger.hideCurrentSnackBar(),
+          child: const Icon(Icons.close, color: Colors.white, size: 16),
+        ),
+      ],
+    );
+
     if (result == 'login_required') {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: const Text('Please login to add to wishlist'),
+          content: snackContent(
+            'Login to save items to your wishlist',
+            onLogin: () => context.push('/login'),
+          ),
           backgroundColor: AppColors.secondary,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          action: SnackBarAction(
-            label: 'Login',
-            textColor: Colors.white,
-            onPressed: () => context.push('/login'),
-          ),
         ),
       );
     } else if (result == 'success') {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: const Text('Added to wishlist!'),
+          content: snackContent('Added to wishlist!'),
           backgroundColor: AppColors.green,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } else if (result == 'removed') {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: const Text('Removed from wishlist'),
+          content: snackContent('Removed from wishlist'),
           backgroundColor: AppColors.textMuted,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -217,7 +246,9 @@ class _BHKListScreenState extends ConsumerState<BHKListScreen> {
                       ),
                     ),
                     child: Container(
-                      margin: const EdgeInsets.only(bottom: 18),
+                      // ✅ FIX: कार्ड्समध्ये (categories) जास्त space हवा
+                      // होता म्हणून bottom margin 18 वरून 28 केला.
+                      margin: const EdgeInsets.only(bottom: 28),
                       decoration: BoxDecoration(
                         color: AppColors.white,
                         borderRadius: BorderRadius.circular(14),
