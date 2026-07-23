@@ -301,14 +301,36 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           }
         }
 
+        // ✅ FIX: guest user आहे का ते चेक करतो. `authProvider.user == null`
+        // म्हणजे guest.
+        final isGuest = ref.read(authProvider).user == null;
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order placed successfully!'),
-              backgroundColor: AppColors.green,
-            ),
-          );
-          context.go('/orders');
+          if (redirectUrl != null && redirectUrl.isNotEmpty) {
+            // ✅ FIX: launchUrl (external browser) फक्त browser उघडतो आणि
+            // लगेच परत येतो — payment प्रत्यक्षात पूर्ण झालं की नाही ते
+            // इथे कळत नाही. त्यामुळे payment अजून बाकी असतानाच "Order
+            // placed successfully!" दाखवणं चुकीचं होतं — ते काढलं.
+            if (isGuest) {
+              // ✅ FIX: guest साठी /orders ला login लागतो, त्यामुळे तो
+              // चुकून login page वर फेकला जायचा. आता guest ला थेट Home वर
+              // पाठवतो — payment browser मध्ये सुरूच राहील, तो पूर्ण करून
+              // परत आल्यावर login केल्यास order त्याला दिसेल.
+              context.go('/');
+            } else {
+              context.go('/orders');
+            }
+          } else {
+            // Redirect नसेल (म्हणजे लगेच order confirm झालेला असेल)
+            // तरच खरा "successful" message दाखवायचा.
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Order placed successfully!'),
+                backgroundColor: AppColors.green,
+              ),
+            );
+            context.go(isGuest ? '/' : '/orders');
+          }
         }
       } else if (mounted) {
         final orderState = ref.read(orderProvider);
@@ -380,7 +402,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       children: [
                         if (cartState.cartItems.isNotEmpty) ...[
                           // ✅ FIX: branch-aware price (finalPriceFor) prati
-                          // item resolve करून _CartLineItem la pass kartोय.
+                          // item resolve करून _CartLineItem la pass kartоय.
                           ...cartState.cartItems.map((item) {
                             final rowId = item['rowId']?.toString() ?? '';
                             final branchPrice = cartState.hasBranchSelected
